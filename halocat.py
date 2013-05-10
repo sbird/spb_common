@@ -17,8 +17,8 @@ def is_masked(halo,sub_mass,sub_cofm, sub_radii):
     #If there is a larger halo nearby, mask this halo
     return np.size(np.where(sub_mass[near] > sub_mass[halo])) == 0
 
-def find_wanted_halos(num, base, min_mass, dist=1):
-    """When handed a halo catalogue, remove from it the halos that are within dist virial radii of other, larger halos.
+def find_all_halos(num, base, min_mass):
+    """Get a halo catalogue and return its members, filtering out those with masses below min_mass.
     Select halos via their M_200 mass, defined in terms of the critical density.
     Arguments:
         num - snapnumber
@@ -28,7 +28,7 @@ def find_wanted_halos(num, base, min_mass, dist=1):
         ind - list of halo indices used
         sub_mass - halo masses in M_sun /h
         sub_cofm - halo positions
-        sub_radii - dist*R_Crit200 for halo radii"""
+        sub_radii - R_Crit200 for halo radii"""
     try:
         subs=readsubf.subfind_catalog(base,num,masstab=True,long_ids=True)
         #Get list of halos resolved, using a mass cut; cuts off at about 2e9 for 512**3 particles.
@@ -55,6 +55,23 @@ def find_wanted_halos(num, base, min_mass, dist=1):
         sub_radii = np.array(subs.Group_R_Crit200[ind])
         del subs
 
+    return (ind, sub_mass,sub_cofm,sub_radii)
+
+def find_wanted_halos(num, base, min_mass, dist=1):
+    """When handed a halo catalogue, remove from it the halos that are within dist virial radii of other, larger halos.
+    Select halos via their M_200 mass, defined in terms of the critical density.
+    Arguments:
+        num - snapnumber
+        base - simulation directory
+        min_mass - minimum mass of halos to use
+        dist - Factor to multiply the virial radius by
+    Returns:
+        ind - list of halo indices used
+        sub_mass - halo masses in M_sun /h
+        sub_cofm - halo positions
+        sub_radii - dist*R_Crit200 for halo radii"""
+
+    (ind, sub_mass,sub_cofm,sub_radii) = find_all_halos(num, base, min_mass)
     sub_radii*=dist
     #For each halo
     ind2=np.where([is_masked(ii,sub_mass,sub_cofm,sub_radii) for ii in xrange(0,np.size(sub_mass))])
