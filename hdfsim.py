@@ -17,10 +17,13 @@ def get_file(num, base, file_num=0):
         f=h5py.File(fname+"."+str(file_num)+".hdf5",'r')
     except IOError:
         if file_num == 0:
-            fname=base+"/snap_"+snap
-            f=h5py.File(fname+".hdf5",'r')
+            fname_new=base+"/snap_"+snap
+            try:
+                f=h5py.File(fname_new+".hdf5",'r')
+            except IOError:
+                raise IOError("Could not open "+fname+" or "+fname_new)
         else:
-            raise IOError
+            raise IOError("Could not open "+fname)
     return f
 
 def get_all_files(num, base):
