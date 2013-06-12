@@ -11,6 +11,7 @@ than the error on each data point.
 """
 
 import numpy as np
+import scipy.stats as st
 
 def leastsq(x,y, method=5):
     """
@@ -96,34 +97,31 @@ def leastsq(x,y, method=5):
     return (alpha, beta, bvar)
 
 def pearson(x,y,alpha, beta, method=3):
-    """Find the residual squares divided by total squares.
-       ie, the Pearson correlation coefficient between the fit and the data.
+    """Find the Pearson correlation coefficient between the fit and the data.
 
-       If method == 1, return
-          r_y^2 = Σ ( y_i - f_i(x) )^2 / Σ ( y_i - ybar )^2
-       For method == 2, substitute x for y above.
-       For method == 3, symmetrise by taking the geometric mean of method 1 and 2,
-          r_xy = (r_y*r_x)**2
+        if method == 1 return the Pearson r of y and the fit to y
+        if method == 2, the same but with x and y reverse
+        if method == 3 the geometric mean of the above
     """
-    xbar = np.mean(x)
-    ybar = np.mean(y)
     #Vector of expected y from fit
     fity = beta*x + alpha
     #Vector of expected x from fit
     fitx = (y - alpha) / beta
     #Scatter from y axis: method 1 minimises this.
-    yscat = np.sum((y-fity)**2)
-    yvar = np.sum((y-ybar)**2)
-
+    pry = st.pearsonr(y,fity)
     if method == 1:
-        return np.sqrt( yscat / yvar )
-
-    #Scatter from x axis: method 2 minimises this.
-    xscat = np.sum((x-fitx)**2)
-    xvar = np.sum((x-xbar)**2)
-
+        return pry
+    prx = st.pearsonr(x,fitx)
     if method == 2:
-        return np.sqrt( xscat / xvar )
+        return prx
+    return np.sqrt(pry*prx)
 
-    if method == 3:
-        return np.sqrt( np.sqrt( yscat / yvar ) * np.sqrt( xscat / xvar ) )
+def kstest(x,y,alpha, beta):
+    """Find the K-S test probability that the fit and the data were from the same distribution"""
+    #Vector of expected y from fit
+    fity = beta*x + alpha
+    #Vector of expected x from fit
+    fitx = (y - alpha) / beta
+    (D1, p1) = st.kstest(y,fity)
+    (D2, p2) = st.kstest(x,fitx)
+    return (D1,p1,D2,p2)
