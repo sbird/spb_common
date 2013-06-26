@@ -108,10 +108,10 @@ def pearson(x,y,alpha, beta, method=3):
     #Vector of expected x from fit
     fitx = (y - alpha) / beta
     #Scatter from y axis: method 1 minimises this.
-    pry = st.pearsonr(y,fity)
+    (pry,p) = st.pearsonr(y,fity)
     if method == 1:
         return pry
-    prx = st.pearsonr(x,fitx)
+    (prx,p) = st.pearsonr(x,fitx)
     if method == 2:
         return prx
     return np.sqrt(pry*prx)
@@ -122,6 +122,6 @@ def kstest(x,y,alpha, beta):
     fity = beta*x + alpha
     #Vector of expected x from fit
     fitx = (y - alpha) / beta
-    (D1, p1) = st.kstest(y,fity)
-    (D2, p2) = st.kstest(x,fitx)
-    return (D1,p1,D2,p2)
+    (D1, p1) = st.ks_2samp(y,fity)
+    (D2, p2) = st.ks_2samp(x,fitx)
+    return (np.sqrt(D1*D2),np.sqrt(p1*p2))
