@@ -274,7 +274,7 @@ class RahmatiRT:
 
         The coefficients are their best-fit from appendix A."""
         nSSh = self.self_shield_dens(temp)
-        photUVBratio= 0.98*(1+nH/nSSh**1.64)**-2.28+0.02*(1+nH/nSSh)**-0.84
+        photUVBratio= 0.98*(1+(nH/nSSh)**1.64)**-2.28+0.02*(1+nH/nSSh)**-0.84
         return photUVBratio * self.gamma_UVB
 
     def self_shield_dens(self,temp):
