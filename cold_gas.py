@@ -306,7 +306,29 @@ class RahmatiRT:
         return (B - np.sqrt(B**2-4*A*alpha_A))/(2*A)
 
     def get_temp(self,nH, bar):
-        """Get the temperature in Kelvin"""
+        """Compute temperature (in K) from internal energy.
+           Uses: internal energy
+                 electron abundance
+                 hydrogen mass fraction (0.76)
+           Factor to convert U (J/kg) to T (K) : U = N k T / (γ - 1)
+           T = U (γ-1) μ m_P / k_B
+           where k_B is the Boltzmann constant
+           γ is 5/3, the perfect gas constant
+           m_P is the proton mass
+
+           μ = 1 / (mean no. molecules per unit atomic weight)
+             = 1 / (X + Y /4 + E)
+             where E = Ne * X, and Y = (1-X).
+             Can neglect metals as they are heavy.
+             Leading contribution is from electrons, which is already included
+             [+ Z / (12->16)] from metal species
+             [+ Z/16*4 ] for OIV from electrons."""
+        #convert U (J/kg) to T (K) : U = N k T / (γ - 1)
+        #T = U (γ-1) μ m_P / k_B
+        #where k_B is the Boltzmann constant
+        #γ is 5/3, the perfect gas constant
+        #m_P is the proton mass
+        #μ is 1 / (mean no. molecules per unit atomic weight) calculated in loop.
         #Internal energy units are 10^-10 erg/g
         ienergy=np.array(bar["InternalEnergy"])*1e10
         #Calculate temperature from internal energy and electron abundance
