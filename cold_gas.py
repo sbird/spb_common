@@ -333,8 +333,10 @@ class RahmatiRT:
         ienergy=np.array(bar["InternalEnergy"])*1e10
         #Calculate temperature from internal energy and electron abundance
         nelec=np.array(bar['ElectronAbundance'])
-        #hy_mass = np.array(bar["GFM_Metals"][:,0],dtype=np.float32)
-        hy_mass = 0.76
+        try:
+            hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
+        except KeyError:
+            hy_mass = 0.76
         mu = 1.0 / ((hy_mass * (0.75 + nelec)) + 0.25)
         #So for T in K, boltzmann in erg/K, internal energy has units of erg/g
         temp = (self.gamma-1) *  mu * self.protonmass / self.boltzmann * ienergy
@@ -355,8 +357,10 @@ class RahmatiRT:
         """Convert hydrogen density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
         nH = np.array(bar["Density"])*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2/(self.protonmass)
         #Hydrogen mass fraction
-        #hy_mass = np.array(bar["GFM_Metals"][:,0],dtype=np.float32)
-        hy_mass = 0.76
+        try:
+            hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
+        except KeyError:
+            hy_mass = 0.76
         #Now in hydrogen atoms / cm^3
         nH*=hy_mass
         #Convert to physical
