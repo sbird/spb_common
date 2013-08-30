@@ -354,15 +354,8 @@ class RahmatiRT:
         return nH0
 
     def get_code_rhoH(self,bar):
-        """Convert hydrogen density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
+        """Convert density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
         nH = np.array(bar["Density"])*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2/(self.protonmass)
-        #Hydrogen mass fraction
-        try:
-            hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
-        except KeyError:
-            hy_mass = 0.76
-        #Now in hydrogen atoms / cm^3
-        nH*=hy_mass
         #Convert to physical
         nH*=(1+self.redshift)**3
         return nH
