@@ -1,6 +1,7 @@
 """Module that wraps h5py for a simulation snapshot.
 Allows loading by a directory and a snapshot number."""
 
+import os.path
 import h5py
 import numpy as np
 
@@ -32,11 +33,12 @@ def get_all_files(num, base):
     files = [ff.filename,]
     ff.close()
     for i in xrange(1,3000):
-        try:
-            ff = get_file(num,base,i)
-            files.append(ff.filename)
-            ff.close()
-        except IOError:
+        snap=str(num).rjust(3,'0')
+        fname=base+"/snapdir_"+snap+"/snap_"+snap
+        filename = fname+"."+str(i)+".hdf5"
+        if os.path.exists(filename):
+            files.append(filename)
+        else:
             break
     return files
 
