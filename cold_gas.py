@@ -25,8 +25,9 @@ class StarFormation:
         T_SN - Temperature of the supernova in K- 10^8 K SH03. (TempSupernova) Used to calculate u_SN
         T_c  - Temperature of the cold clouds in K- 10^3 K SH03. (TempClouds) Used to calculate u_c.
         A_0  - Supernova evaporation parameter (FactorEVP = 1000).
+        WARNING: cooling time for the cloud is hard-coded, as is rescaled beta.
     """
-    def __init__(self,hubble=0.7,t_0_star=1.5,beta=0.1,T_SN=1e8,T_c = 1000, A_0=1000):
+    def __init__(self,hubble=0.7,t_0_star=2.27,beta=0.1,T_SN=5.73e7,T_c = 1000, A_0=573):
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
         self.UnitMass_in_g=1.989e43
@@ -34,10 +35,11 @@ class StarFormation:
         self.UnitLength_in_cm=3.085678e21
         #Internal velocity unit : 1 km/s in cm/s
         self.UnitVelocity_in_cm_per_s=1e5
+        self.UnitTime_in_s = (self.UnitLength_in_cm/self.UnitVelocity_in_cm_per_s)
         #proton mass in g
-        self.protonmass=1.66053886e-24
+        self.protonmass=1.67262178e-24
         self.hy_mass = 0.76 # Hydrogen massfrac
-        self.gamma=5./3
+        self.gamma=5./3.
         #Boltzmann constant (cgs)
         self.boltzmann=1.38066e-16
 
@@ -50,9 +52,10 @@ class StarFormation:
         self.hubble=hubble
 
         #Supernova timescale in s
-        self.t_0_star=t_0_star*(self.UnitLength_in_cm/self.UnitVelocity_in_cm_per_s)/self.hubble # Now in s
+        self.t_0_star=t_0_star*self.UnitTime_in_s/self.hubble # Now in s
 
-        self.beta = beta
+        #This is the value output by an IMF rescaling, if GFM_EVOLUTION is on.
+        self.beta = 0.264089
 
         self.A_0 = A_0
 
@@ -64,6 +67,12 @@ class StarFormation:
         meanweight = 4 / (8 - 5 * (1 - self.hy_mass))    #Assuming FULL ionization for u_H
         self.u_SN =  1. / meanweight * (1.0 / (self.gamma -1)) * (self.boltzmann / self.protonmass) * T_SN
 
+        self.UnitDensity_in_cgs = self.UnitMass_in_g/self.UnitLength_in_cm**3
+        #This is the hard-coded "very high density" at which the cooling rate is computed
+        #in the Gadget 2-phase SFR model.
+        self.rhoinf = 277.476 * self.UnitDensity_in_cgs
+        #The cooling time for cold clouds, as computed inside the Gadget star-forming model.
+        self.tcool = 4.64419e-10 * self.UnitTime_in_s/self.hubble
 
     def cold_gas_frac(self,rho, tcool,rho_thresh):
         """Calculates the fraction of gas in cold clouds, following
@@ -93,48 +102,42 @@ class StarFormation:
         f_c = 1.+ 1./(2*y) - np.sqrt(1./y+1./(4*y**2))
         return f_c
 
-    def get_rho_thresh(self,rho_phys_thresh=0.1):
+    def get_rho_thresh(self):
         """
         This function calculates the physical density threshold for star formation.
         It can be specified in two ways: either as a physical density threshold
         (rho_phys_thresh ) in units of hydrogen atoms per cm^3
         or as a critical density threshold (rho_crit_thresh) which is in units of rho_baryon at z=0.
-        Parameters:
-                rho_phys_thresh - Optional physical density threshold
-                rho_crit_
+        DO NOT USE THIS FUNCTION as we cannot calculate the cooling rates here
         Returns:
-                rho_thresh in units of g/cm^3
+                rho_thresh in units of H atoms/cm^3
         """
-        if rho_phys_thresh != 0:
-            return rho_phys_thresh*self.protonmass #Now in g/cm^3
-
         u_h = self.u_SN / self.A_0
 
         #u_4 - thermal energy at 10^4K
         meanweight = 4 / (8 - 5 * (1 - self.hy_mass))    #Assuming FULL ionization for u_H
         u_4 =  1. / meanweight * (1.0 / (self.gamma-1)) * (self.boltzmann / self.protonmass) *1e4
         #Note: get_asymptotic_cool does not give the full answer, so do not use it.
-        coolrate = self.get_asmyptotic_cool(u_h)*(self.hy_mass/self.protonmass)**2
+        coolrate = u_h / self.tcool / self.rhoinf
 
         x = (u_h - u_4) / (u_h - self.u_c)
-        return x / (1 - x)**2 * (self.beta * self.u_SN - (1 -self.beta) * self.u_c) /(self.t_0_star * coolrate)
-
+        physdens =  x / (1 - x)**2 * (self.beta * self.u_SN - (1 -self.beta) * self.u_c) /(self.t_0_star * coolrate)
+        return physdens / self.protonmass *self.hy_mass
 
     def get_asmyptotic_cool(self,u_h):
         """
-        Get the cooling time for the asymptotically hot limit of cooling,
-        where the electrons are fully ionised.
+        Get the cooling time for the asymptotically dense limit of cooling,
+        where ne = 1, at a temperature u_h.
         Neglect all cooling except free-free; Gadget includes Compton from the CMB,
         but this will be negligible for high temperatures.
 
         Assumes no heating.
-        Note: at the temperatures relevant for the threshold density, UV background excitation
-        and emission is actually the dominant source of cooling.
-        So this function is not useful, but I leave it here in case it is one day.
+        This function is not useful as it does not really do the right calculation,
+        but I leave it here in case it is one day.
         """
         yhelium = (1 - self.hy_mass) / (4 * self.hy_mass)
-        meanweight = 4 / (8 - 5 * (1 - self.hy_mass))    #Assuming FULL ionization for u_H
-        temp = u_h* meanweight * (self.gamma -1) *(self.protonmass / self.boltzmann)
+        mu = 4 / (8 - 5 * (1 - self.hy_mass))    #Assuming FULL ionization for u_H
+        temp = (self.gamma-1) *  mu * self.protonmass / self.boltzmann * u_h
         print "T=",temp
         #Very hot: H and He both fully ionized
         yhelium = (1 - self.hy_mass) / (4 * self.hy_mass)
@@ -151,45 +154,44 @@ class StarFormation:
         return LambdaFF
 
 
-    def get_tescari_rhoHI(self,bar,rho_phys_thresh=0.1):
-        """Get a neutral hydrogen density in cm^-2
-        applying the correction in eq. 1 of Tescari & Viel
-        Parameters:
-            bar = a baryon type from an HDF5 file.
-            rho_phys_thresh - physical SFR threshold density in hydrogen atoms/cm^3
-                            - 0.1 (Tornatore & Borgani 2007)
-                            - 0.1289 (derived from the SH star formation model)
-        Returns:
-            nH0 - the density of neutral hydrogen in these particles in atoms/cm^3
-        """
-        inH0=np.array(bar["NeutralHydrogenAbundance"],dtype=np.float64)
-        #Convert density to hydrogen atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
-        irho=np.array(bar["Density"],dtype=np.float64)*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2/(self.protonmass/self.hy_mass)
-        #Default density matches Tescari & Viel and Nagamine 2004
-        dens_ind=np.where(irho > rho_phys_thresh)
-        #UnitCoolingRate_in_cgs=UnitMass_in_g*(UnitVelocity_in_cm_per_s**3/UnitLength_in_cm**4)
-        #Note: CoolingRate is really internal energy / cooling time = u / t_cool
-        # HOWEVER, a CoolingRate of zero is really t_cool = 0, which is Lambda < 0, ie, heating.
-        #For the star formation we are interested in y ~ t_star/t_cool,
-        #So we want t_cool = InternalEnergy/CoolingRate,
-        #except when CoolingRate==0, when we want t_cool = 0
-        icool=np.array(bar["CoolingRate"],dtype=np.float64)
-        ienergy=np.array(bar["InternalEnergy"],dtype=np.float64)
-        cool=icool[dens_ind]
-        ind=np.where(cool == 0)
-        #Set cool to a very large number to avoid divide by zero
-        cool[ind]=1e99
-        tcool = ienergy[dens_ind]/cool
-        #Convert from internal time units, normally 9.8x10^8 yr/h to s.
-        tcool *= (self.UnitLength_in_cm/self.UnitVelocity_in_cm_per_s)/self.hubble # Now in s
-        fcold=self.cold_gas_frac(irho[dens_ind],tcool,rho_phys_thresh)
-        #Adjust the neutral hydrogen fraction
-        inH0[dens_ind]=fcold
-
-        #Calculate rho_HI
-        nH0=irho*inH0
-        #Now in atoms /cm^3
-        return nH0
+def get_tescari_rhoHI(star,bar,rho_phys_thresh=0.1):
+    """Get a neutral hydrogen density in cm^-2
+    applying the correction in eq. 1 of Tescari & Viel
+    Parameters:
+        bar = a baryon type from an HDF5 file.
+        rho_phys_thresh - physical SFR threshold density in hydrogen atoms/cm^3
+                        - 0.1 (Tornatore & Borgani 2007)
+                        - 0.1289 (derived from the SH star formation model)
+    Returns:
+        nH0 - the density of neutral hydrogen in these particles in atoms/cm^3
+    """
+    inH0=np.array(bar["NeutralHydrogenAbundance"],dtype=np.float64)
+    #Convert density to hydrogen atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
+    irho=np.array(bar["Density"],dtype=np.float64)*(star.UnitMass_in_g/star.UnitLength_in_cm**3)*star.hubble**2/(star.protonmass/star.hy_mass)
+    #Default density matches Tescari & Viel and Nagamine 2004
+    dens_ind=np.where(irho > rho_phys_thresh)
+    #UnitCoolingRate_in_cgs=UnitMass_in_g*(UnitVelocity_in_cm_per_s**3/UnitLength_in_cm**4)
+    #Note: CoolingRate is really internal energy / cooling time = u / t_cool
+    # HOWEVER, a CoolingRate of zero is really t_cool = 0, which is Lambda < 0, ie, heating.
+    #For the star formation we are interested in y ~ t_star/t_cool,
+    #So we want t_cool = InternalEnergy/CoolingRate,
+    #except when CoolingRate==0, when we want t_cool = 0
+    icool=np.array(bar["CoolingRate"],dtype=np.float64)
+    ienergy=np.array(bar["InternalEnergy"],dtype=np.float64)
+    cool=icool[dens_ind]
+    ind=np.where(cool == 0)
+    #Set cool to a very large number to avoid divide by zero
+    cool[ind]=1e99
+    tcool = ienergy[dens_ind]/cool
+    #Convert from internal time units, normally 9.8x10^8 yr/h to s.
+    tcool *= (star.UnitLength_in_cm/star.UnitVelocity_in_cm_per_s)/star.hubble # Now in s
+    fcold=star.cold_gas_frac(irho[dens_ind],tcool,rho_phys_thresh)
+    #Adjust the neutral hydrogen fraction
+    inH0[dens_ind]=fcold
+    #Calculate rho_HI
+    nH0=irho*inH0
+    #Now in atoms /cm^3
+    return nH0
 
 class YajimaRT:
     """Neutral hydrogen density with a self-shielding correction as suggested by Yajima Nagamine 2012 (1112.5691)
@@ -204,30 +206,29 @@ class YajimaRT:
         #Internal velocity unit : 1 km/s in cm/s
         self.UnitVelocity_in_cm_per_s=1e5
         #proton mass in g
-        self.protonmass=1.66053886e-24
+        self.protonmass=1.67262178e-24
         self.hy_mass = 0.76 # Hydrogen massfrac
 
     def get_yajima_rhoHI(self,bar):
         """Get a neutral hydrogen density with a self-shielding correction as suggested by Yajima Nagamine 2012 (1112.5691)
         This is just neutral over a certain density."""
-        inH0=np.array(bar["NeutralHydrogenAbundance"])
+        inH0=np.array(bar["NeutralHydrogenAbundance"], dtype=np.float32)
         #Convert density to hydrogen atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
-        irho=np.array(bar["Density"])*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2*(self.hy_mass/self.protonmass)
+        irho=np.array(bar["Density"], dtype=np.float32)*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2*(self.hy_mass/self.protonmass)
         #Slightly less sharp cutoff power law fit to data
         r2 = 10**-2.3437
         r1 = 10**-1.81844
         dens_ind=np.where(irho > r1)
         inH0[dens_ind]=1.
-        ind2 = np.where((irho < r1)*(irho > r2))
+        del dens_ind
+        ind2 = np.where(np.logical_and(irho < r1,irho > r2))
         #Interpolate between r1 and r2
         n=2.6851
         inH0[ind2] = (inH0[ind2]*(r1-irho[ind2])**n+(irho[ind2]-r2)**n)/(r1-r2)**n
-        #Calculate rho_HI
-        nH0=irho*inH0
-        #Now in atoms /cm^3
-        return nH0*(1+self.redshift)**3
+        del ind2
+        return inH0
 
-    def get_reproc_rhoHI(self, bar):
+    def get_reproc_HI(self, bar):
         """Get a neutral hydrogen density using the fitting formula of Rahmati 2012"""
         return self.get_yajima_rhoHI(bar)
 
@@ -251,13 +252,14 @@ class RahmatiRT:
         self.gamma_UVB = gamma_inter(redshift)
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
-        self.UnitMass_in_g=1.989e43
+        UnitMass_in_g=1.989e43
         #Internal gadget length unit: 1 kpc/h in cm/h
         self.UnitLength_in_cm=3.085678e21
+        self.UnitDensity_in_cgs = UnitMass_in_g/self.UnitLength_in_cm**3
         #Internal velocity unit : 1 km/s in cm/s
         self.UnitVelocity_in_cm_per_s=1e5
         #proton mass in g
-        self.protonmass=1.66053886e-24
+        self.protonmass=1.67262178e-24
         #self.hy_mass = 0.76 # Hydrogen massfrac
         self.gamma=5./3
         #Boltzmann constant (cgs)
