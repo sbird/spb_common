@@ -26,6 +26,7 @@ class StarFormation:
         T_c  - Temperature of the cold clouds in K- 10^3 K SH03. (TempClouds) Used to calculate u_c.
         A_0  - Supernova evaporation parameter (FactorEVP = 1000).
         WARNING: cooling time for the cloud is hard-coded, as is rescaled beta.
+        This uses values from the default GFM parameters. Do not try to change them!
     """
     def __init__(self,hubble=0.7,t_0_star=2.27,beta=0.1,T_SN=5.73e7,T_c = 1000, A_0=573):
         #Some constants and unit systems
@@ -70,7 +71,7 @@ class StarFormation:
         self.UnitDensity_in_cgs = self.UnitMass_in_g/self.UnitLength_in_cm**3
         #This is the hard-coded "very high density" at which the cooling rate is computed
         #in the Gadget 2-phase SFR model.
-        self.rhoinf = 277.476 * self.UnitDensity_in_cgs
+        self.rhoinf = 277.476 * self.UnitDensity_in_cgs*self.hubble**2
         #The cooling time for cold clouds, as computed inside the Gadget star-forming model.
         self.tcool = 4.64419e-10 * self.UnitTime_in_s/self.hubble
 
@@ -97,9 +98,10 @@ class StarFormation:
 
         # a parameter: y = t_star \Lambda_net(\rho_h,u_h) / \rho_h (\beta u_SN - (1-\beta) u_c) (SH03)
         # Or in Gadget: y = t_star /t_cool * u_SN / ( \beta u_SN - (1-\beta) u_c)
-        y = t_star / tcool *u_h / (self.beta*self.u_SN - (1-self.beta)*self.u_c)
+        y = u_h / (self.beta*self.u_SN - (1-self.beta)*self.u_c)
+        times = tcool / t_star
         #The cold gas fraction
-        f_c = 1.+ 1./(2*y) - np.sqrt(1./y+1./(4*y**2))
+        f_c = 1.+ times/(2*y) - np.sqrt(times/y+times**2/(4*y**2))
         return f_c
 
     def get_rho_thresh(self):
@@ -267,6 +269,10 @@ class RahmatiRT:
 
         self.hubble = hubble
 
+        self.star = StarFormation(hubble)
+        #Physical density threshold for star formation in H atoms / cm^3
+        self.PhysDensThresh = self.star.get_rho_thresh()
+
 
     def photo_rate(self, nH, temp):
         """Photoionisation rate as  a function of density from Rahmati 2012, eq. 14.
@@ -294,14 +300,14 @@ class RahmatiRT:
     def recomb_rate(self, temp):
         """The recombination rate from Rahmati eq A3, also Hui Gnedin 1997.
         Takes temperature in K, returns rate in cm^3 / s"""
-        lamb = 315614/temp
+        lamb = 315614./temp
         return 1.269e-13*lamb**1.503 / (1+(lamb/0.522)**0.47)**1.923
 
     def neutral_fraction(self, nH, temp):
         """The neutral fraction from Rahmati 2012 eq. A8"""
         alpha_A = self.recomb_rate(temp)
         #A6 from Theuns 98
-        LambdaT = 1.17e-10*temp**0.5*np.exp(-157809/temp)/(1+np.sqrt(temp/1e5))
+        LambdaT = 1.17e-10*temp**0.5*np.exp(-157809./temp)/(1+np.sqrt(temp/1e5))
         A = alpha_A + LambdaT
         B = 2*alpha_A + self.photo_rate(nH, temp)/nH + LambdaT
 
@@ -342,9 +348,6 @@ class RahmatiRT:
         mu = 1.0 / ((hy_mass * (0.75 + nelec)) + 0.25)
         #So for T in K, boltzmann in erg/K, internal energy has units of erg/g
         temp = (self.gamma-1) *  mu * self.protonmass / self.boltzmann * ienergy
-        #Set the temperature of particles with densities of nH > 0.1 cm^-3 to 10^4 K.
-        ind = np.where(nH > 0.1)
-        temp[ind] = 1e4
         return temp
 
     def get_rahmati_HI(self, bar):
@@ -357,7 +360,7 @@ class RahmatiRT:
 
     def get_code_rhoH(self,bar):
         """Convert density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
-        nH = np.array(bar["Density"])*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2/(self.protonmass)
+        nH = np.array(bar["Density"])*self.UnitDensity_in_cgs*self.hubble**2/(self.protonmass)
         #Convert to physical
         nH*=(1+self.redshift)**3
         return nH
@@ -373,14 +376,52 @@ class RahmatiRT:
         as Arepo reports values for the eEOS. """
         nH0 = self.code_neutral_fraction(bar)
         nH=self.get_code_rhoH(bar)
-        ind = np.where(nH > 0.1)
-        #Above star-formation threshold, gas is at 10^4K
-        nH0[ind] = self.neutral_fraction(nH[ind], 1e4)*(1-self.molec*self.get_H2_frac(nH[ind]))
+        #Above star-formation threshold, we want a neutral fraction which includes
+        #explicitly the amount of gas in cold clouds.
+        #Ideally we should compute this fraction, and then do
+        #  tcool = self.get_tcool(nH,bar)[ind]
+        #  print np.median(tcool)
+        #  cold_frac = self.star.cold_gas_frac(nH[ind], tcool,self.PhysDensThresh/0.76)
+        #  print np.mean(cold_frac)
+        #  ssnH0 = (1-cold_frac)*self.neutral_fraction(nH[ind], temp[ind])+ cold_frac*self.neutral_fraction(nH[ind], 1e4)
+        #But the cooling time reported by the code is not quite what we want here,
+        #because it uses the internal energy reported by U, whereas we really want
+        #the cooling time using the energy for the hot phase, at a given density.
+        #So just assume that at the threshold all gas is in cold clouds.
+        #In reality, this should be about 90% of gas in cold clouds, so
+        #we will overpredict the neutral fraction by a small amount.
+        ind = np.where(nH > self.PhysDensThresh/0.76)
+        temp = self.get_temp(nH,bar)
+        ssnH0 = self.neutral_fraction(nH[ind], 1e4)
+        nH0[ind] = ssnH0*(1-self.molec*self.get_H2_frac(nH[ind]))
         return nH0
 
     def get_H2_frac(self,nHI):
         """Get the molecular fraction for neutral gas from the ISM pressure:
-           only meaningful when nH > 0.1, ie, star forming."""
+           only meaningful when nH > 0.1."""
         fH2 = 1./(1+(0.1/nHI)**(0.92*5./3.)*35**0.92)
         return fH2
 
+    def get_tcool(self, nH, bar):
+        """
+        Get the cooling time for a particle from the snapshot.
+
+        UnitCoolingRate_in_cgs=UnitMass_in_g*(UnitVelocity_in_cm_per_s**3/UnitLength_in_cm**4)
+
+        CoolingRate is really internal energy / cooling time = u / t_cool
+         HOWEVER, a CoolingRate of zero is really t_cool = 0, which is Lambda < 0, ie, heating.
+        For the star formation we are interested in y ~ t_star/t_cool,
+        So we want t_cool = InternalEnergy/CoolingRate,
+        except when CoolingRate==0, when we want t_cool = 0
+
+        returns tcool in seconds
+        """
+        #GFM_Cooling rate is already in s/erg.
+        cool=np.array(bar["GFM_CoolingRate"], dtype=np.float32)
+        ienergy=np.array(bar["InternalEnergy"], dtype=np.float32)
+        ind=np.where(cool < 0)
+        #Set cool to a very large number to avoid divide by zero
+        tcool = np.zeros_like(ienergy, dtype=np.float32)
+        fact = -(0.76/self.protonmass)*nH[ind]
+        tcool[ind] = ienergy[ind]*1e10/(cool[ind]*fact)
+        return tcool
