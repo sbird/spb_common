@@ -13,5 +13,5 @@ def save_figure(path):
         path = path+".pdf"
     elif bk == 'PS' or bk == 'ps':
         path = path+".ps"
-    return plt.savefig(path)
+    return plt.savefig(path,bbox_inches='tight')
 
