@@ -391,7 +391,6 @@ class RahmatiRT:
         #In reality, this should be about 90% of gas in cold clouds, so
         #we will overpredict the neutral fraction by a small amount.
         ind = np.where(nH > self.PhysDensThresh/0.76)
-        temp = self.get_temp(nH,bar)
         ssnH0 = self.neutral_fraction(nH[ind], 1e4)
         nH0[ind] = ssnH0*(1-self.molec*self.get_H2_frac(nH[ind]))
         return nH0
