@@ -2,8 +2,14 @@
 """A small module for computing the smoothing length of a particle simulation.
 (Non-trivial in Arepo)"""
 
-import math
+from math import pi
 import numpy as np
+import numexpr as ne
+
+#To get these factors as floats for numexpr
+scal = np.float32(3./4./pi)
+poww = np.float32(1./3.)
+
 
 def get_smooth_length(bar):
     """Figures out if the particles are from AREPO or GADGET
@@ -18,13 +24,12 @@ def get_smooth_length(bar):
     """
     #Are we arepo? If we are a modern version we should have this array.
     if np.any(np.array(bar.keys()) == 'Volume'):
-        volume=np.array(bar["Volume"])
-        radius = (3*volume/4/math.pi)**(0.33333333)
+        volume=np.array(bar["Volume"],dtype=np.float32)
+        radius = ne.evaluate("(scal*volume)**poww")
     elif np.any(np.array(bar.keys()) == 'Number of faces of cell'):
         rho=np.array(bar["Density"])
         mass=np.array(bar["Masses"])
-        volume = mass/rho
-        radius = (3*volume/4/math.pi)**(0.33333333)
+        radius = ne.evaluate("(scal*mass/rho)**poww")
     else:
         #If we are gadget, the SmoothingLength array is actually the smoothing length.
         radius=np.array(bar["SmoothingLength"])

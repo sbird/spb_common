@@ -11,6 +11,7 @@ the neutral hydrogen density in *physical* atoms / cm^3
 """
 
 import numpy as np
+import numexpr as nmex
 
 class StarFormation:
     """Calculates the fraction of gas in cold clouds, following
@@ -345,9 +346,9 @@ class RahmatiRT:
             hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
         except KeyError:
             hy_mass = 0.76
-        mu = 1.0 / ((hy_mass * (0.75 + nelec)) + 0.25)
+        mu = nmex.evaluate("4 / (hy_mass * (3 + 4*nelec) + 1)")
         #So for T in K, boltzmann in erg/K, internal energy has units of erg/g
-        temp = (self.gamma-1) *  mu * self.protonmass / self.boltzmann * ienergy
+        temp = (self.gamma-1) * self.protonmass / self.boltzmann * nmex.evaluate("mu * ienergy")
         return temp
 
     def get_rahmati_HI(self, bar):
@@ -360,9 +361,10 @@ class RahmatiRT:
 
     def get_code_rhoH(self,bar):
         """Convert density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
-        nH = np.array(bar["Density"])*self.UnitDensity_in_cgs*self.hubble**2/(self.protonmass)
+        nH = np.array(bar["Density"])
+        conv = np.float32(self.UnitDensity_in_cgs*self.hubble**2/(self.protonmass)*(1+self.redshift)**3)
         #Convert to physical
-        nH*=(1+self.redshift)**3
+        nH=nmex.evaluate("conv*nH")
         return nH
 
     def code_neutral_fraction(self, bar):
@@ -375,7 +377,7 @@ class RahmatiRT:
         Above the star formation density use the Rahmati fitting formula directly,
         as Arepo reports values for the eEOS. """
         nH0 = self.code_neutral_fraction(bar)
-        nH=self.get_code_rhoH(bar)
+        nH = self.get_code_rhoH(bar)
         #Above star-formation threshold, we want a neutral fraction which includes
         #explicitly the amount of gas in cold clouds.
         #Ideally we should compute this fraction, and then do
