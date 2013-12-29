@@ -313,7 +313,7 @@ class RahmatiRT:
 
         return (B - np.sqrt(B**2-4*A*alpha_A))/(2*A)
 
-    def get_temp(self,nH, bar):
+    def get_temp(self,bar):
         """Compute temperature (in K) from internal energy.
            Uses: internal energy
                  electron abundance
@@ -354,7 +354,7 @@ class RahmatiRT:
         """Get a neutral hydrogen density using the fitting formula of Rahmati 2012"""
         #Convert density to atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
         nH=self.get_code_rhoH(bar)
-        temp = self.get_temp(nH, bar)
+        temp = self.get_temp(bar)
         nH0 = self.neutral_fraction(nH, temp)
         return nH0
 
