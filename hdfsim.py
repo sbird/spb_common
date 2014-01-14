@@ -22,7 +22,7 @@ def get_file(num, base, file_num=0):
             try:
                 f=h5py.File(fname_new+".hdf5",'r')
             except IOError:
-                raise IOError("Could not open "+fname+" or "+fname_new)
+                raise IOError("Could not open "+fname+"."+str(file_num)+".hdf5 or "+fname_new+".hdf5")
         else:
             raise IOError("Could not open "+fname)
     return f
