@@ -47,13 +47,13 @@ def ks_2d_2samp(data1, data2):
     #Their mean
     D = (D1+D2)/2.
     #The approximate p-value: this is detailed in NR 14.8
-    neff = npt1*npt2/(1.*npt1+npt2)
-    (rr1,p) = st.pearsonr(data1[:,0], data1[:,1])
-    (rr2,p) = st.pearsonr(data2[:,0], data2[:,1])
-    reff = (rr1**2+rr2**2)/2.
-    ksarg = neff*D/(1+np.sqrt(1-reff)*(025-0.75/np.sqrt(neff)))
-    pval = ksdist(ksarg)
-    return (D, pval)
+#     neff = npt1*npt2/(1.*npt1+npt2)
+#     (rr1,p) = st.pearsonr(data1[:,0], data1[:,1])
+#     (rr2,p) = st.pearsonr(data2[:,0], data2[:,1])
+#     reff = (rr1**2+rr2**2)/2.
+#     ksarg = neff*D/(1+np.sqrt(1-reff)*(025-0.75/np.sqrt(neff)))
+#     pval = ksdist(ksarg)
+    return D #(D, pval)
 
 def max_diff_for_orig(orig, data1, data2):
     """For a given origin, orig, compute the fraction of each data point in each quadrant,
