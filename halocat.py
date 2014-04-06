@@ -2,8 +2,7 @@
 """Split off module to load halo catalogues and export a list of mass and positions"""
 
 import numpy as np
-import readsubfHDF5
-import readsubf
+import subfindhdf
 
 #Internal gadget mass unit: 1e10 M_sun/h in g/h
 UnitMass_in_g=1.989e43
@@ -29,31 +28,17 @@ def find_all_halos(num, base, min_mass):
         sub_mass - halo masses in M_sun /h
         sub_cofm - halo positions
         sub_radii - R_Crit200 for halo radii"""
-    try:
-        subs=readsubf.subfind_catalog(base,num,masstab=True,long_ids=True)
-        #Get list of halos resolved, using a mass cut; cuts off at about 2e9 for 512**3 particles.
-        ind=np.where(subs.group_m_crit200 > min_mass)
-        #Store the indices of the halos we are using
-        #Get particle center of mass, use group catalogue.
-        sub_cofm=np.array(subs.group_pos[ind])
-        #halo masses in M_sun/h: use M_200
-        sub_mass=np.array(subs.group_m_crit200[ind])*UnitMass_in_g/SolarMass_in_g
-        #r200 in kpc.
-        sub_radii = np.array(subs.group_r_crit200[ind])
-        del subs
-    except IOError:
-        # We might have the halo catalog stored in the new format, which is HDF5.
-        subs=readsubfHDF5.subfind_catalog(base, num,long_ids=True)
-        #Get list of halos resolved, using a mass cut; cuts off at about 2e9 for 512**3 particles.
-        ind=np.where(subs.Group_M_Crit200 > min_mass)
-        #Store the indices of the halos we are using
-        #Get particle center of mass, use group catalogue.
-        sub_cofm=np.array(subs.GroupPos[ind])
-        #halo masses in M_sun/h: use M_200
-        sub_mass=np.array(subs.Group_M_Crit200[ind])*UnitMass_in_g/SolarMass_in_g
-        #r200 in kpc/h (comoving).
-        sub_radii = np.array(subs.Group_R_Crit200[ind])
-        del subs
+    subs=subfindhdf.SubFindHDF5(base, num)
+    #Get list of halos resolved, using a mass cut; cuts off at about 2e9 for 512**3 particles.
+    ind=np.where(subs.get_grp("Group_M_Crit200") > min_mass)
+    #Store the indices of the halos we are using
+    #Get particle center of mass, use group catalogue.
+    sub_cofm=np.array(subs.get_grp("GroupPos")[ind])
+    #halo masses in M_sun/h: use M_200
+    sub_mass=np.array(subs.get_grp("Group_M_Crit200")[ind])*UnitMass_in_g/SolarMass_in_g
+    #r200 in kpc/h (comoving).
+    sub_radii = np.array(subs.get_grp("Group_R_Crit200")[ind])
+    del subs
 
     return (ind, sub_mass,sub_cofm,sub_radii)
 
