@@ -48,6 +48,10 @@ class SubFindHDF5:
             f.close()
             for ii in xrange(1, np.size(self.foffiles)):
                 f = h5py.File(self.foffiles[ii],'r')
+                if dset == "Group" and f["Header"].attrs['Ngroups_ThisFile'] == 0:
+                    continue
+                if dset == "Subhalo" and f["Header"].attrs['Nsubgroups_ThisFile'] == 0:
+                    continue
                 tmp = np.array(f[dset][name])
                 f.close()
                 data = np.concatenate([data, tmp])
