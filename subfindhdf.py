@@ -14,7 +14,7 @@ class SubFindHDF5:
         fofdir = path.join(base,"groups_"+snap)
         fofpatt = fofdir+"/fof_subhalo_tab_"+snap+"*.hdf5"
         #Get a list of the files
-        self.foffiles = glob.glob(fofpatt)
+        self.foffiles = sorted(glob.glob(fofpatt))
         f = h5py.File(self.foffiles[0],'r')
         #Find out how many of each type of thing we have by reading the header
         self._sizes = {}
