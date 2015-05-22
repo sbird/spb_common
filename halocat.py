@@ -52,7 +52,7 @@ def find_wanted_halos(num, base, min_mass, dist=1):
         dist - Factor to multiply the virial radius by
     Returns:
         ind - list of halo indices used
-        sub_mass - halo masses in M_sun /h
+        sub_mass - halo masses in 1e10 M_sun /h
         sub_cofm - halo positions
         sub_radii - dist*R_Crit200 for halo radii"""
 
