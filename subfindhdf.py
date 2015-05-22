@@ -41,12 +41,12 @@ class SubFindHDF5:
     def _get_single_file_array(self, fname, dset, name):
         """Get the desired dataset from a single file"""
         f = h5py.File(fname,'r')
-        if dset == "Group" and f["Header"].attrs['Ngroups_ThisFile'] == 0:
-            return np.array([])
-        if dset == "Subhalo" and f["Header"].attrs['Nsubgroups_ThisFile'] == 0:
-            return np.array([])
-        tmp = np.array(f[dset][name])
-        f.close()
+        try:
+            tmp = np.array(f[dset][name])
+        except KeyError:
+            tmp = np.array([])
+        finally:
+            f.close()
         return tmp
 
     def _get_array(self, dset, name):
