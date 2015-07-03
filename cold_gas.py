@@ -13,7 +13,7 @@ the neutral hydrogen density in *physical* atoms / cm^3
 import numpy as np
 import numexpr as nmex
 
-class StarFormation:
+class StarFormation(object):
     """Calculates the fraction of gas in cold clouds, following
     Springel & Hernquist 2003 (astro-ph/0206393) and
     Nagamine, Springel and Hernquist 2004 (astro-ph/0305409).
@@ -196,7 +196,7 @@ def get_tescari_rhoHI(star,bar,rho_phys_thresh=0.1):
     #Now in atoms /cm^3
     return nH0
 
-class YajimaRT:
+class YajimaRT(object):
     """Neutral hydrogen density with a self-shielding correction as suggested by Yajima Nagamine 2012 (1112.5691)
     This is just neutral over a certain density."""
     def __init__(self, redshift, hubble=0.71):
@@ -246,7 +246,7 @@ zz = [0, 1, 2, 3, 4, 5, 6, 7,8]
 
 import scipy.interpolate.interpolate as intp
 
-class RahmatiRT:
+class RahmatiRT(object):
     """Class implementing the neutral fraction ala Rahmati 2012"""
     def __init__(self, redshift,hubble = 0.71, fbar=0.17, molec = True, UnitLength_in_cm=3.085678e21, UnitMass_in_g=1.989e43):
         self.f_bar = fbar
