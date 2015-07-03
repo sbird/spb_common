@@ -248,7 +248,7 @@ import scipy.interpolate.interpolate as intp
 
 class RahmatiRT:
     """Class implementing the neutral fraction ala Rahmati 2012"""
-    def __init__(self, redshift,hubble = 0.71, fbar=0.17, molec = True):
+    def __init__(self, redshift,hubble = 0.71, fbar=0.17, molec = True, UnitLength_in_cm=3.085678e21, UnitMass_in_g=1.989e43):
         self.f_bar = fbar
         self.redshift = redshift
         self.molec = molec
@@ -259,9 +259,9 @@ class RahmatiRT:
         self.gamma_UVB = gamma_inter(redshift)
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
-        UnitMass_in_g=1.989e43
+        #UnitMass_in_g=1.989e43
         #Internal gadget length unit: 1 kpc/h in cm/h
-        self.UnitLength_in_cm=3.085678e21
+        self.UnitLength_in_cm=UnitLength_in_cm
         self.UnitDensity_in_cgs = UnitMass_in_g/self.UnitLength_in_cm**3
         #Internal velocity unit : 1 km/s in cm/s
         self.UnitVelocity_in_cm_per_s=1e5
