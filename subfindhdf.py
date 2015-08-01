@@ -38,13 +38,18 @@ class SubFindHDF5:
         """Get the names of all arrays attached to subhalos"""
         return self.Subnames
 
-    def _get_single_file_array(self, fname, dset, name):
+    def _get_single_file_array(self, fname, dset, name, shapes):
         """Get the desired dataset from a single file"""
         f = h5py.File(fname,'r')
         try:
             tmp = np.array(f[dset][name])
         except KeyError:
-            tmp = np.array([])
+            #We want an empty array which fits with the full one
+            if len(shapes) > 1:
+                shapes_zero = (0,)+shapes[1:]
+                tmp = np.array([]).reshape(shapes_zero)
+            else:
+                tmp = np.array([])
         finally:
             f.close()
         return tmp
@@ -54,7 +59,9 @@ class SubFindHDF5:
         try:
             return self._cache[dset][name]
         except KeyError:
-            data = np.concatenate([self._get_single_file_array(ff, dset, name) for ff in self.foffiles])
+            #Get the shape from the first file, which will always contain a halo.
+            shapes = np.shape(self._get_single_file_array(self.foffiles[0], dset, name, None))
+            data = np.concatenate([self._get_single_file_array(ff, dset, name, shapes) for ff in self.foffiles])
         #Check we found everything
         assert(np.shape(data)[0] == self._sizes[dset])
         self._cache[dset][name] = data
