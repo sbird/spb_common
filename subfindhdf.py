@@ -23,8 +23,8 @@ class SubFindHDF5:
         #This is not actually used yet
         self._sizes["IDs"] = f["Header"].attrs["Nids_Total"]
         #Find the group and subhalo array names
-        self.Grpnames = f["Group"].keys()
-        self.Subnames = f["Subhalo"].keys()
+        self.Grpnames = list(f["Group"].keys())
+        self.Subnames = list(f["Subhalo"].keys())
         f.close()
         self._cache = {}
         self._cache["Group"] = {}
