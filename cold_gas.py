@@ -141,7 +141,7 @@ class StarFormation(object):
         yhelium = (1 - self.hy_mass) / (4 * self.hy_mass)
         mu = 4 / (8 - 5 * (1 - self.hy_mass))    #Assuming FULL ionization for u_H
         temp = (self.gamma-1) *  mu * self.protonmass / self.boltzmann * u_h
-        print "T=",temp
+        print("T=",temp)
         #Very hot: H and He both fully ionized
         yhelium = (1 - self.hy_mass) / (4 * self.hy_mass)
         nHp = 1.0

@@ -38,12 +38,10 @@ def ks_2d_2samp(data1, data2):
         High value means we cannot reject the hypothesis that they are from the same distribution.
         low D => high p
     """
-    npt1 = np.shape(data1)[0]
     #Compute D using data1 as the origins
-    D1 = np.max([max_diff_for_orig(data1[i,:], data1, data2) for i in xrange(npt1)])
-    npt2 = np.shape(data2)[0]
+    D1 = np.max([max_diff_for_orig(dd, data1, data2) for dd in data1])
     #Compute D using data2 as the origins
-    D2 = np.max([max_diff_for_orig(data2[i,:], data1, data2) for i in xrange(npt2)])
+    D2 = np.max([max_diff_for_orig(dd, data1, data2) for dd in data2])
     #Their mean
     D = (D1+D2)/2.
     #The approximate p-value: this is detailed in NR 14.8
@@ -101,7 +99,7 @@ def _ksdist1(x):
     Best for when x > 1.18"""
     total = 0
     #Should be < 3 iterations in practice
-    for j in xrange(20):
+    for j in range(20):
         extra = (-1)**j*np.exp(-2*(j+1)**2*x**2)
         total += extra
         if extra == 0 or extra/total < 1e-7:
@@ -114,7 +112,7 @@ def _ksdist2(x):
     Best for when x < 1.18"""
     total = 0
     #Should be < 3 iterations in practice
-    for j in xrange(1,20):
+    for j in range(20):
         extra = np.exp(-(2*j-1)**2*math.pi**2/(8*x**2))
         total += extra
         if extra == 0 or extra/total < 1e-7:

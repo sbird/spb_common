@@ -32,7 +32,7 @@ def get_all_files(num, base):
     ff = get_file(num, base)
     files = [ff.filename,]
     ff.close()
-    for i in xrange(1,3000):
+    for i in range(1,3000):
         snap=str(num).rjust(3,'0')
         fname=base+"/snapdir_"+snap+"/snap_"+snap
         filename = fname+"."+str(i)+".hdf5"

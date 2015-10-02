@@ -3,6 +3,10 @@
 
 import numpy as np
 import subfindhdf
+try:
+    xrange(1)
+except NameError:
+    xrange = range
 
 #Internal gadget mass unit: 1e10 M_sun/h in g/h
 UnitMass_in_g=1.989e43
