@@ -11,6 +11,8 @@ the neutral hydrogen density in *physical* atoms / cm^3
 """
 
 import numpy as np
+import scipy.interpolate.interpolate as intp
+
 
 class StarFormation(object):
     """Calculates the fraction of gas in cold clouds, following
@@ -21,14 +23,13 @@ class StarFormation(object):
         hubble - hubble parameter in units of 100 km/s/Mpc
         t_0_star - star formation timescale at threshold density
              - (MaxSfrTimescale) 1.5 in internal time units ( 1 itu ~ 0.97 Gyr/h)
-        beta - fraction of massive stars which form supernovae (FactorSN) 0.1 in SH03.
         T_SN - Temperature of the supernova in K- 10^8 K SH03. (TempSupernova) Used to calculate u_SN
         T_c  - Temperature of the cold clouds in K- 10^3 K SH03. (TempClouds) Used to calculate u_c.
         A_0  - Supernova evaporation parameter (FactorEVP = 1000).
         WARNING: cooling time for the cloud is hard-coded, as is rescaled beta.
         This uses values from the default GFM parameters. Do not try to change them!
     """
-    def __init__(self,hubble=0.7,t_0_star=2.27,beta=0.1,T_SN=5.73e7,T_c = 1000, A_0=573):
+    def __init__(self,hubble=0.7,t_0_star=2.27,T_SN=5.73e7,T_c = 1000, A_0=573):
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
         self.UnitMass_in_g=1.989e43
@@ -242,8 +243,6 @@ class YajimaRT(object):
 gray_opac = [2.59e-18,2.37e-18,2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18, 1.82e-18, 1.71e-18, 1.60e-18]
 gamma_UVB = [3.99e-14, 3.03e-13, 6e-13, 5.53e-13, 4.31e-13, 3.52e-13, 2.678e-13,  1.81e-13, 9.43e-14]
 zz = [0, 1, 2, 3, 4, 5, 6, 7,8]
-
-import scipy.interpolate.interpolate as intp
 
 class RahmatiRT(object):
     """Class implementing the neutral fraction ala Rahmati 2012"""
