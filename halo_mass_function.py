@@ -54,7 +54,7 @@ class HaloMassFunction:
         # This is the comoving density at redshift z in units of h^-1 M_sun (Mpc/h)^-3 (comoving)
         # Compute as a function of the critical density at z=0.
         rhom = self.overden.rhocrit(0) * self.overden.omega_matter0 #self.overden.omega_matter_of_z(self.overden.redshift)
-        growth = self.Dofz(zz)
+        growth = self.overden.Dofz(zz)
         sigma = self.overden.sigmaof_M(mass)*growth
         mass_func = self.mass_function(sigma)
         dlogsigma = self.overden.log_sigmaof_M(mass)*growth/mass
