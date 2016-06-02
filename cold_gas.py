@@ -11,7 +11,6 @@ the neutral hydrogen density in *physical* atoms / cm^3
 """
 
 import numpy as np
-import numexpr as nmex
 
 class StarFormation(object):
     """Calculates the fraction of gas in cold clouds, following
@@ -343,16 +342,17 @@ class RahmatiRT(object):
         #m_P is the proton mass
         #μ is 1 / (mean no. molecules per unit atomic weight) calculated in loop.
         #Internal energy units are 10^-10 erg/g
-        ienergy=np.array(bar["InternalEnergy"])*1e10
+        ienergy=np.array(bar["InternalEnergy"],dtype=np.float32)*1e10
         #Calculate temperature from internal energy and electron abundance
-        nelec=np.array(bar['ElectronAbundance'])
+        nelec=np.array(bar['ElectronAbundance'],dtype=np.float32)
         try:
             hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
         except KeyError:
             hy_mass = 0.76
-        mu = nmex.evaluate("4 / (hy_mass * (3 + 4*nelec) + 1)")
+        mu = 4 / (hy_mass * (3 + 4*nelec) + 1)
         #So for T in K, boltzmann in erg/K, internal energy has units of erg/g
-        temp = (self.gamma-1) * self.protonmass / self.boltzmann * nmex.evaluate("mu * ienergy")
+        temp = (self.gamma-1) * self.protonmass / self.boltzmann * mu * ienergy
+        assert temp.dtype == np.float32
         return temp
 
     def get_rahmati_HI(self, bar):
@@ -365,10 +365,10 @@ class RahmatiRT(object):
 
     def get_code_rhoH(self,bar):
         """Convert density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
-        nH = np.array(bar["Density"])
+        nH = np.array(bar["Density"],dtype=np.float32)
         conv = np.float32(self.UnitDensity_in_cgs*self.hubble**2/(self.protonmass)*(1+self.redshift)**3)
         #Convert to physical
-        nH=nmex.evaluate("conv*nH")
+        nH=conv*nH
         return nH
 
     def code_neutral_fraction(self, bar):
