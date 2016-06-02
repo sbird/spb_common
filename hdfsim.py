@@ -39,7 +39,11 @@ def get_all_files(num, base):
         if os.path.exists(filename):
             files.append(filename)
         else:
-            break
+            filename = fname+".hdf5"
+            if os.path.exists(filename):
+                files.append(filename)
+            else:
+                break
     return files
 
 
