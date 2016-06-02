@@ -22,7 +22,8 @@ def get_file(num, base, file_num=0):
         fname = new_fname
     #Find a file
     fnames = glob.glob(os.path.join(fname, "snap_"+snap+"*hdf5"))
-    f = h5py.File(fnames[0], 'r')
+    fnames.sort()
+    f = h5py.File(fnames[file_num], 'r')
     return f
 
 def get_all_files(num, base):
