@@ -6,9 +6,9 @@ See also NR 14.8 (although they are a bit vague). Note that this uses NR results
 but not their code, so is ok for distribution.
 """
 
+import math
 import scipy.stats as st
 import numpy as np
-import math
 
 def ks_2samp(data1, data2):
     """Computes the Kolmogorov-Smirnof statistic on 2 samples.

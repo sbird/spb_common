@@ -1,17 +1,18 @@
 """Module to test the cold_gas code"""
 
+import random
+import numpy as np
 import matplotlib
 matplotlib.use('PDF')
+import matplotlib.pyplot as plt
 
 import cold_gas
 import myname
-import numpy as np
 import hdfsim
-import random
-import matplotlib.pyplot as plt
 import save_figure
 
 def setup_test(molec,sim):
+    """Setup the test case with a simulation"""
     name = myname.get_name(sim)
 
     f=hdfsim.get_file(3,name,0)
@@ -27,11 +28,11 @@ def setup_test(molec,sim):
 def plot_vs_den(nH, thing):
     """Plot a sample of a thing vs density"""
     ind = np.where(nH < 1e-3)
-    ints = random.sample(xrange(np.size(ind)),500)
+    ints = random.sample(range(np.size(ind)),500)
     plt.semilogx(nH[ind][ints], thing[ind][ints], 'o')
 
     ind = np.where(nH >= 1e-3)
-    ints = random.sample(xrange(np.size(ind)),3000)
+    ints = random.sample(range(np.size(ind)),3000)
     plt.semilogx(nH[ind][ints], thing[ind][ints], 'o')
 
     for thresh in (0.05, 0.15):
@@ -40,7 +41,7 @@ def plot_vs_den(nH, thing):
             if np.size(ind) < 5000:
                 plt.semilogx(nH[ind], thing[ind], 'o')
             else:
-                ints = random.sample(xrange(np.size(ind)),5000)
+                ints = random.sample(range(np.size(ind)),5000)
                 plt.semilogx(nH[ind][ints], thing[ind][ints], 'o')
 
 def plot_neut_sim(molec, sim):
@@ -55,7 +56,7 @@ def plot_temp_sim(molec, sim):
     """Plot temperature for a particular sim"""
     (cold, bar)= setup_test(molec, sim)
     nH=cold.get_code_rhoH(bar)
-    temp = cold.get_temp(nH, bar)
+    temp = cold.get_temp(bar)
     plot_vs_den(nH, temp)
 
 def plot_test():

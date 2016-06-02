@@ -108,10 +108,10 @@ def pearson(x,y,alpha, beta, method=3):
     #Vector of expected x from fit
     fitx = (y - alpha) / beta
     #Scatter from y axis: method 1 minimises this.
-    (pry,p) = st.pearsonr(y,fity)
+    (pry,_) = st.pearsonr(y,fity)
     if method == 1:
         return pry
-    (prx,p) = st.pearsonr(x,fitx)
+    (prx,_) = st.pearsonr(x,fitx)
     if method == 2:
         return prx
     return np.sqrt(pry*prx)
