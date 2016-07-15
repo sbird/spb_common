@@ -1,8 +1,8 @@
 """Small class for reading in subfind tables in HDF5 format"""
-import h5py
-import numpy as np
 import glob
 import os.path as path
+import h5py
+import numpy as np
 
 class SubFindHDF5:
     """
@@ -63,7 +63,7 @@ class SubFindHDF5:
             shapes = np.shape(self._get_single_file_array(self.foffiles[0], dset, name, None))
             data = np.concatenate([self._get_single_file_array(ff, dset, name, shapes) for ff in self.foffiles])
         #Check we found everything
-        assert(np.shape(data)[0] == self._sizes[dset])
+        assert np.shape(data)[0] == self._sizes[dset]
         self._cache[dset][name] = data
         return data
 

@@ -15,10 +15,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import mpfit
 import re
-import numpy
-import scipy
+import mpfit
 
 def mpfitexpr(func, x, y, err , start_params, check=True, full_output=False, **kw):
     r"""Fit the used defined expression to the data

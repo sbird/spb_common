@@ -2,6 +2,8 @@
 Allows loading by a directory and a snapshot number."""
 
 import os.path
+import re
+import glob
 import h5py
 import numpy as np
 
@@ -12,19 +14,18 @@ def get_file(num, base, file_num=0):
         num - snapshot number
         base - simulation directory
         file_num - file number in the snapshot"""
+    fname = base
     snap=str(num).rjust(3,'0')
-    fname=base+"/snapdir_"+snap+"/snap_"+snap
-    try:
-        f=h5py.File(fname+"."+str(file_num)+".hdf5",'r')
-    except IOError:
-        if file_num == 0:
-            fname_new=base+"/snap_"+snap
-            try:
-                f=h5py.File(fname_new+".hdf5",'r')
-            except IOError:
-                raise IOError("Could not open "+fname+"."+str(file_num)+".hdf5 or "+fname_new+".hdf5")
-        else:
-            raise IOError("Could not open "+fname)
+    new_fname = os.path.join(base, "snapdir_"+snap)
+    #Check for snapshot directory
+    if os.path.exists(new_fname):
+        fname = new_fname
+    #Find a file
+    fnames = glob.glob(os.path.join(fname, "snap_"+snap+"*hdf5"))
+    if len(fnames) == 0:
+        raise IOError("No files found")
+    fnames.sort()
+    f = h5py.File(fnames[file_num], 'r')
     return f
 
 def get_all_files(num, base):
@@ -33,9 +34,10 @@ def get_all_files(num, base):
     files = [ff.filename,]
     ff.close()
     for i in range(1,3000):
-        snap=str(num).rjust(3,'0')
-        fname=base+"/snapdir_"+snap+"/snap_"+snap
-        filename = fname+"."+str(i)+".hdf5"
+        filename = re.sub(r"\.0\.hdf5","."+str(i)+".hdf5",files[0])
+        #If we only have one file
+        if filename == files[0]:
+            break
         if os.path.exists(filename):
             files.append(filename)
         else:

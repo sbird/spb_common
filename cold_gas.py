@@ -9,8 +9,10 @@ the neutral hydrogen density in *physical* atoms / cm^3
         get_reproc_HI - Gets a corrected neutral hydrogen density
 """
 
+from __future__ import print_function
 import numpy as np
-import numexpr as nmex
+import scipy.interpolate.interpolate as intp
+
 
 class StarFormation(object):
     """Calculates the fraction of gas in cold clouds, following
@@ -21,14 +23,13 @@ class StarFormation(object):
         hubble - hubble parameter in units of 100 km/s/Mpc
         t_0_star - star formation timescale at threshold density
              - (MaxSfrTimescale) 1.5 in internal time units ( 1 itu ~ 0.97 Gyr/h)
-        beta - fraction of massive stars which form supernovae (FactorSN) 0.1 in SH03.
         T_SN - Temperature of the supernova in K- 10^8 K SH03. (TempSupernova) Used to calculate u_SN
         T_c  - Temperature of the cold clouds in K- 10^3 K SH03. (TempClouds) Used to calculate u_c.
         A_0  - Supernova evaporation parameter (FactorEVP = 1000).
         WARNING: cooling time for the cloud is hard-coded, as is rescaled beta.
         This uses values from the default GFM parameters. Do not try to change them!
     """
-    def __init__(self,hubble=0.7,t_0_star=2.27,beta=0.1,T_SN=5.73e7,T_c = 1000, A_0=573):
+    def __init__(self,hubble=0.7,t_0_star=2.27,T_SN=5.73e7,T_c = 1000, A_0=573):
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
         self.UnitMass_in_g=1.989e43
@@ -160,11 +161,9 @@ class StarFormation(object):
 #Gray power law was: -1.12e-19*(zz-3.5)+2.1e-18 fit to z > 2.
 #gamma_UVB was: -8.66e-14*(zz-3.5)+4.84e-13
 #This is clearly wrong, but this model is equally a poor choice at these redshifts anyway.
-gray_opac = [2.59e-18,2.37e-18,2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18, 1.82e-18, 1.71e-18, 1.60e-18]
+gray_opac = [2.59e-18,2.37e-18,2.27e-18, 2.15e-18, 2.02e-18, 1.94e-18, 1.82e-18, 1.71e-18, 1.60e-18,]
 gamma_UVB = [3.99e-14, 3.03e-13, 6e-13, 5.53e-13, 4.31e-13, 3.52e-13, 2.678e-13,  1.81e-13, 9.43e-14]
 zz = [0, 1, 2, 3, 4, 5, 6, 7,8]
-
-import scipy.interpolate.interpolate as intp
 
 class RahmatiRT(object):
     """Class implementing the neutral fraction ala Rahmati 2012"""
@@ -172,11 +171,6 @@ class RahmatiRT(object):
         self.f_bar = fbar
         self.redshift = redshift
         self.molec = molec
-        #Interpolate for opacity and gamma_UVB
-        gamma_inter = intp.interp1d(zz,gamma_UVB)
-        gray_inter = intp.interp1d(zz,gray_opac)
-        self.gray_opac = gray_inter(redshift)
-        self.gamma_UVB = gamma_inter(redshift)
         #Some constants and unit systems
         #Internal gadget mass unit: 1e10 M_sun/h in g/h
         #UnitMass_in_g=1.989e43
@@ -197,6 +191,14 @@ class RahmatiRT(object):
         self.star = StarFormation(hubble)
         #Physical density threshold for star formation in H atoms / cm^3
         self.PhysDensThresh = self.star.get_rho_thresh()
+        if redshift > zz[-1]:
+            self.redshift_coverage = False
+            print("Warning: no self-shielding at z=",redshift)
+        #Interpolate for opacity and gamma_UVB
+        gamma_inter = intp.interp1d(zz,gamma_UVB)
+        gray_inter = intp.interp1d(zz,gray_opac)
+        self.gray_opac = gray_inter(redshift)
+        self.gamma_UVB = gamma_inter(redshift)
 
 
     def photo_rate(self, nH, temp):
@@ -262,32 +264,35 @@ class RahmatiRT(object):
         #m_P is the proton mass
         #μ is 1 / (mean no. molecules per unit atomic weight) calculated in loop.
         #Internal energy units are 10^-10 erg/g
-        ienergy=np.array(bar["InternalEnergy"])*1e10
+        ienergy=np.array(bar["InternalEnergy"],dtype=np.float32)*1e10
         #Calculate temperature from internal energy and electron abundance
-        nelec=np.array(bar['ElectronAbundance'])
+        nelec=np.array(bar['ElectronAbundance'],dtype=np.float32)
         try:
             hy_mass = np.array(bar["GFM_Metals"][:,0], dtype=np.float32)
         except KeyError:
             hy_mass = 0.76
-        mu = nmex.evaluate("4 / (hy_mass * (3 + 4*nelec) + 1)")
+        mu = 4 / (hy_mass * (3 + 4*nelec) + 1)
         #So for T in K, boltzmann in erg/K, internal energy has units of erg/g
-        temp = (self.gamma-1) * self.protonmass / self.boltzmann * nmex.evaluate("mu * ienergy")
+        temp = (self.gamma-1) * self.protonmass / self.boltzmann * mu * ienergy
+        assert temp.dtype == np.float32
         return temp
 
     def get_rahmati_HI(self, bar):
         """Get a neutral hydrogen density using the fitting formula of Rahmati 2012"""
         #Convert density to atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
         nH=self.get_code_rhoH(bar)
+        if not self.redshift_coverage:
+            return nH
         temp = self.get_temp(bar)
         nH0 = self.neutral_fraction(nH, temp)
         return nH0
 
     def get_code_rhoH(self,bar):
         """Convert density to physical atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3"""
-        nH = np.array(bar["Density"])
+        nH = np.array(bar["Density"],dtype=np.float32)
         conv = np.float32(self.UnitDensity_in_cgs*self.hubble**2/(self.protonmass)*(1+self.redshift)**3)
         #Convert to physical
-        nH=nmex.evaluate("conv*nH")
+        nH=conv*nH
         return nH
 
     def code_neutral_fraction(self, bar):

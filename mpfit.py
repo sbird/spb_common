@@ -409,193 +409,192 @@ Perform Levenberg-Marquardt least-squares minimization, based on MINPACK-1.
 """
 from __future__ import print_function
 import numpy
-import types
 import scipy.linalg
 
-"""
-#     Original FORTRAN documentation
-#     **********
-#
-#     subroutine lmdif
-#
-#     the purpose of lmdif is to minimize the sum of the squares of
-#     m nonlinear functions in n variables by a modification of
-#     the levenberg-marquardt algorithm. the user must provide a
-#     subroutine which calculates the functions. the jacobian is
-#     then calculated by a forward-difference approximation.
-#
-#     the subroutine statement is
-#
-#       subroutine lmdif(fcn,m,n,x,fvec,ftol,xtol,gtol,maxfev,epsfcn,
-#                        diag,mode,factor,nprint,info,nfev,fjac,
-#                        ldfjac,ipvt,qtf,wa1,wa2,wa3,wa4)
-#
-#     where
-#
-#       fcn is the name of the user-supplied subroutine which
-#         calculates the functions. fcn must be declared
-#         in an external statement in the user calling
-#         program, and should be written as follows.
-#
-#         subroutine fcn(m,n,x,fvec,iflag)
-#         integer m,n,iflag
-#         double precision x(n),fvec(m)
-#         ----------
-#         calculate the functions at x and
-#         return this vector in fvec.
-#         ----------
-#         return
-#         end
-#
-#         the value of iflag should not be changed by fcn unless
-#         the user wants to terminate execution of lmdif.
-#         in this case set iflag to a negative integer.
-#
-#       m is a positive integer input variable set to the number
-#         of functions.
-#
-#       n is a positive integer input variable set to the number
-#         of variables. n must not exceed m.
-#
-#       x is an array of length n. on input x must contain
-#         an initial estimate of the solution vector. on output x
-#         contains the final estimate of the solution vector.
-#
-#       fvec is an output array of length m which contains
-#         the functions evaluated at the output x.
-#
-#       ftol is a nonnegative input variable. termination
-#         occurs when both the actual and predicted relative
-#         reductions in the sum of squares are at most ftol.
-#         therefore, ftol measures the relative error desired
-#         in the sum of squares.
-#
-#       xtol is a nonnegative input variable. termination
-#         occurs when the relative error between two consecutive
-#         iterates is at most xtol. therefore, xtol measures the
-#         relative error desired in the approximate solution.
-#
-#       gtol is a nonnegative input variable. termination
-#         occurs when the cosine of the angle between fvec and
-#         any column of the jacobian is at most gtol in absolute
-#         value. therefore, gtol measures the orthogonality
-#         desired between the function vector and the columns
-#         of the jacobian.
-#
-#       maxfev is a positive integer input variable. termination
-#         occurs when the number of calls to fcn is at least
-#         maxfev by the end of an iteration.
-#
-#       epsfcn is an input variable used in determining a suitable
-#         step length for the forward-difference approximation. this
-#         approximation assumes that the relative errors in the
-#         functions are of the order of epsfcn. if epsfcn is less
-#         than the machine precision, it is assumed that the relative
-#         errors in the functions are of the order of the machine
-#         precision.
-#
-#       diag is an array of length n. if mode = 1 (see
-#         below), diag is internally set. if mode = 2, diag
-#         must contain positive entries that serve as
-#         multiplicative scale factors for the variables.
-#
-#       mode is an integer input variable. if mode = 1, the
-#         variables will be scaled internally. if mode = 2,
-#         the scaling is specified by the input diag. other
-#         values of mode are equivalent to mode = 1.
-#
-#       factor is a positive input variable used in determining the
-#         initial step bound. this bound is set to the product of
-#         factor and the euclidean norm of diag*x if nonzero, or else
-#         to factor itself. in most cases factor should lie in the
-#         interval (.1,100.). 100. is a generally recommended value.
-#
-#       nprint is an integer input variable that enables controlled
-#         printing of iterates if it is positive. in this case,
-#         fcn is called with iflag = 0 at the beginning of the first
-#         iteration and every nprint iterations thereafter and
-#         immediately prior to return, with x and fvec available
-#         for printing. if nprint is not positive, no special calls
-#         of fcn with iflag = 0 are made.
-#
-#       info is an integer output variable. if the user has
-#         terminated execution, info is set to the (negative)
-#         value of iflag. see description of fcn. otherwise,
-#         info is set as follows.
-#
-#         info = 0  improper input parameters.
-#
-#         info = 1  both actual and predicted relative reductions
-#                   in the sum of squares are at most ftol.
-#
-#         info = 2  relative error between two consecutive iterates
-#                   is at most xtol.
-#
-#         info = 3  conditions for info = 1 and info = 2 both hold.
-#
-#         info = 4  the cosine of the angle between fvec and any
-#                   column of the jacobian is at most gtol in
-#                   absolute value.
-#
-#         info = 5  number of calls to fcn has reached or
-#                   exceeded maxfev.
-#
-#         info = 6  ftol is too small. no further reduction in
-#                   the sum of squares is possible.
-#
-#         info = 7  xtol is too small. no further improvement in
-#                   the approximate solution x is possible.
-#
-#         info = 8  gtol is too small. fvec is orthogonal to the
-#                   columns of the jacobian to machine precision.
-#
-#       nfev is an integer output variable set to the number of
-#         calls to fcn.
-#
-#       fjac is an output m by n array. the upper n by n submatrix
-#         of fjac contains an upper triangular matrix r with
-#         diagonal elements of nonincreasing magnitude such that
-#
-#                t     t           t
-#               p *(jac *jac)*p = r *r,
-#
-#         where p is a permutation matrix and jac is the final
-#         calculated jacobian. column j of p is column ipvt(j)
-#         (see below) of the identity matrix. the lower trapezoidal
-#         part of fjac contains information generated during
-#         the computation of r.
-#
-#       ldfjac is a positive integer input variable not less than m
-#         which specifies the leading dimension of the array fjac.
-#
-#       ipvt is an integer output array of length n. ipvt
-#         defines a permutation matrix p such that jac*p = q*r,
-#         where jac is the final calculated jacobian, q is
-#         orthogonal (not stored), and r is upper triangular
-#         with diagonal elements of nonincreasing magnitude.
-#         column j of p is column ipvt(j) of the identity matrix.
-#
-#       qtf is an output array of length n which contains
-#         the first n elements of the vector (q transpose)*fvec.
-#
-#       wa1, wa2, and wa3 are work arrays of length n.
-#
-#       wa4 is a work array of length m.
-#
-#     subprograms called
-#
-#       user-supplied ...... fcn
-#
-#       minpack-supplied ... dpmpar,enorm,fdjac2,,qrfac
-#
-#       fortran-supplied ... dabs,dmax1,dmin1,dsqrt,mod
-#
-#     argonne national laboratory. minpack project. march 1980.
-#     burton s. garbow, kenneth e. hillstrom, jorge j. more
-#
-#     **********
-"""
 class mpfit(object):
+    """
+     Original FORTRAN documentation
+     **********
+
+     subroutine lmdif
+
+     the purpose of lmdif is to minimize the sum of the squares of
+     m nonlinear functions in n variables by a modification of
+     the levenberg-marquardt algorithm. the user must provide a
+     subroutine which calculates the functions. the jacobian is
+     then calculated by a forward-difference approximation.
+
+     the subroutine statement is
+
+       subroutine lmdif(fcn,m,n,x,fvec,ftol,xtol,gtol,maxfev,epsfcn,
+                        diag,mode,factor,nprint,info,nfev,fjac,
+                        ldfjac,ipvt,qtf,wa1,wa2,wa3,wa4)
+
+     where
+
+       fcn is the name of the user-supplied subroutine which
+         calculates the functions. fcn must be declared
+         in an external statement in the user calling
+         program, and should be written as follows.
+
+         subroutine fcn(m,n,x,fvec,iflag)
+         integer m,n,iflag
+         double precision x(n),fvec(m)
+         ----------
+         calculate the functions at x and
+         return this vector in fvec.
+         ----------
+         return
+         end
+
+         the value of iflag should not be changed by fcn unless
+         the user wants to terminate execution of lmdif.
+         in this case set iflag to a negative integer.
+
+       m is a positive integer input variable set to the number
+         of functions.
+
+       n is a positive integer input variable set to the number
+         of variables. n must not exceed m.
+
+       x is an array of length n. on input x must contain
+         an initial estimate of the solution vector. on output x
+         contains the final estimate of the solution vector.
+
+       fvec is an output array of length m which contains
+         the functions evaluated at the output x.
+
+       ftol is a nonnegative input variable. termination
+         occurs when both the actual and predicted relative
+         reductions in the sum of squares are at most ftol.
+         therefore, ftol measures the relative error desired
+         in the sum of squares.
+
+       xtol is a nonnegative input variable. termination
+         occurs when the relative error between two consecutive
+         iterates is at most xtol. therefore, xtol measures the
+         relative error desired in the approximate solution.
+
+       gtol is a nonnegative input variable. termination
+         occurs when the cosine of the angle between fvec and
+         any column of the jacobian is at most gtol in absolute
+         value. therefore, gtol measures the orthogonality
+         desired between the function vector and the columns
+         of the jacobian.
+
+       maxfev is a positive integer input variable. termination
+         occurs when the number of calls to fcn is at least
+         maxfev by the end of an iteration.
+
+       epsfcn is an input variable used in determining a suitable
+         step length for the forward-difference approximation. this
+         approximation assumes that the relative errors in the
+         functions are of the order of epsfcn. if epsfcn is less
+         than the machine precision, it is assumed that the relative
+         errors in the functions are of the order of the machine
+         precision.
+
+       diag is an array of length n. if mode = 1 (see
+         below), diag is internally set. if mode = 2, diag
+         must contain positive entries that serve as
+         multiplicative scale factors for the variables.
+
+       mode is an integer input variable. if mode = 1, the
+         variables will be scaled internally. if mode = 2,
+         the scaling is specified by the input diag. other
+         values of mode are equivalent to mode = 1.
+
+       factor is a positive input variable used in determining the
+         initial step bound. this bound is set to the product of
+         factor and the euclidean norm of diag*x if nonzero, or else
+         to factor itself. in most cases factor should lie in the
+         interval (.1,100.). 100. is a generally recommended value.
+
+       nprint is an integer input variable that enables controlled
+         printing of iterates if it is positive. in this case,
+         fcn is called with iflag = 0 at the beginning of the first
+         iteration and every nprint iterations thereafter and
+         immediately prior to return, with x and fvec available
+         for printing. if nprint is not positive, no special calls
+         of fcn with iflag = 0 are made.
+
+       info is an integer output variable. if the user has
+         terminated execution, info is set to the (negative)
+         value of iflag. see description of fcn. otherwise,
+         info is set as follows.
+
+         info = 0  improper input parameters.
+
+         info = 1  both actual and predicted relative reductions
+                   in the sum of squares are at most ftol.
+
+         info = 2  relative error between two consecutive iterates
+                   is at most xtol.
+
+         info = 3  conditions for info = 1 and info = 2 both hold.
+
+         info = 4  the cosine of the angle between fvec and any
+                   column of the jacobian is at most gtol in
+                   absolute value.
+
+         info = 5  number of calls to fcn has reached or
+                   exceeded maxfev.
+
+         info = 6  ftol is too small. no further reduction in
+                   the sum of squares is possible.
+
+         info = 7  xtol is too small. no further improvement in
+                   the approximate solution x is possible.
+
+         info = 8  gtol is too small. fvec is orthogonal to the
+                   columns of the jacobian to machine precision.
+
+       nfev is an integer output variable set to the number of
+         calls to fcn.
+
+       fjac is an output m by n array. the upper n by n submatrix
+         of fjac contains an upper triangular matrix r with
+         diagonal elements of nonincreasing magnitude such that
+
+                t     t           t
+               p *(jac *jac)*p = r *r,
+
+         where p is a permutation matrix and jac is the final
+         calculated jacobian. column j of p is column ipvt(j)
+         (see below) of the identity matrix. the lower trapezoidal
+         part of fjac contains information generated during
+         the computation of r.
+
+       ldfjac is a positive integer input variable not less than m
+         which specifies the leading dimension of the array fjac.
+
+       ipvt is an integer output array of length n. ipvt
+         defines a permutation matrix p such that jac*p = q*r,
+         where jac is the final calculated jacobian, q is
+         orthogonal (not stored), and r is upper triangular
+         with diagonal elements of nonincreasing magnitude.
+         column j of p is column ipvt(j) of the identity matrix.
+
+       qtf is an output array of length n which contains
+         the first n elements of the vector (q transpose)*fvec.
+
+       wa1, wa2, and wa3 are work arrays of length n.
+
+       wa4 is a work array of length m.
+
+     subprograms called
+
+       user-supplied ...... fcn
+
+       minpack-supplied ... dpmpar,enorm,fdjac2,,qrfac
+
+       fortran-supplied ... dabs,dmax1,dmin1,dsqrt,mod
+
+     argonne national laboratory. minpack project. march 1980.
+     burton s. garbow, kenneth e. hillstrom, jorge j. more
+
+     **********
+    """
 
     blas_enorm32 = scipy.linalg.get_blas_funcs('nrm2',dtype=numpy.float32)
     blas_enorm64 = scipy.linalg.get_blas_funcs('nrm2',dtype=numpy.float64)
@@ -814,9 +813,6 @@ class mpfit(object):
         If nocovar is set or MPFIT terminated abnormally, then .covar is set to
         a scalar with value None.
 
-     .errmsg
-        A string error or warning message is returned.
-
      .nfev
         The number of calls to MYFUNCT performed.
 
@@ -848,14 +844,12 @@ class mpfit(object):
         self.perror = None
         self.status = 0  # Invalid input flag set while we check inputs
         self.debug = debug
-        self.errmsg = ''
         self.nfev = 0
         self.damp = damp
         self.dof=0
 
-        if fcn==None:
-            self.errmsg = "Usage: parms = mpfit('myfunt', ... )"
-            return
+        if fcn is None:
+            raise RuntimeError("Usage: parms = mpfit('myfunt', ... )")
 
         if iterfunct == 'default':
             iterfunct = self.defiter
@@ -863,34 +857,28 @@ class mpfit(object):
         # Parameter damping doesn't work when user is providing their own
         # gradients.
         if (self.damp != 0) and (autoderivative == 0):
-            self.errmsg =  'ERROR: keywords DAMP and AUTODERIVATIVE are mutually exclusive'
-            return
+            raise RuntimeError('ERROR: keywords DAMP and AUTODERIVATIVE are mutually exclusive')
 
         # Parameters can either be stored in parinfo, or x. x takes precedence if it exists
         if (xall is None) and (parinfo is None):
-            self.errmsg = 'ERROR: must pass parameters in P or PARINFO'
-            return
+            raise RuntimeError('ERROR: must pass parameters in P or PARINFO')
 
         # Be sure that PARINFO is of the right type
         if parinfo is not None:
             if not isinstance(parinfo, list):
-                self.errmsg = 'ERROR: PARINFO must be a list of dictionaries.'
-                return
+                raise RuntimeError('ERROR: PARINFO must be a list of dictionaries.')
             else:
                 if not isinstance(parinfo[0],dict):
-                    self.errmsg = 'ERROR: PARINFO must be a list of dictionaries.'
-                    return
+                    raise RuntimeError('ERROR: PARINFO must be a list of dictionaries.')
             if (xall is not None) and (len(xall) != len(parinfo)):
-                self.errmsg = 'ERROR: number of elements in PARINFO and P must agree'
-                return
+                raise RuntimeError('ERROR: number of elements in PARINFO and P must agree')
 
         # If the parameters were not specified at the command line, then
         # extract them from PARINFO
         if xall is None:
             xall = self.parinfo(parinfo, 'value')
             if xall is None:
-                self.errmsg = 'ERROR: either P or PARINFO(*)["value"] must be supplied.'
-                return
+                raise RuntimeError('ERROR: either P or PARINFO(*)["value"] must be supplied.')
 
         # Make sure parameters are numpy arrays
         xall = numpy.asarray(xall)
@@ -930,8 +918,7 @@ class mpfit(object):
         qmin[:] = False # Remove minstep for now!!
         qmax = maxstep != 0
         if numpy.any(qmin & qmax & (maxstep<minstep)):
-            self.errmsg = 'ERROR: MPMINSTEP is greater than MPMAXSTEP'
-            return
+            raise RuntimeError('ERROR: MPMINSTEP is greater than MPMAXSTEP')
         wh = (numpy.nonzero((qmin!=0.) | (qmax!=0.)))[0]
         qminmax = len(wh > 0)
 
@@ -939,8 +926,7 @@ class mpfit(object):
         ifree = (numpy.nonzero(pfixed != 1))[0]
         nfree = len(ifree)
         if nfree == 0:
-            self.errmsg = 'ERROR: no free parameters'
-            return
+            raise RuntimeError('ERROR: no free parameters')
 
         # Compose only VARYING parameters
         self.params = xall.copy()      # self.params is the set of parameters to be returned
@@ -952,11 +938,9 @@ class mpfit(object):
         if (limited is not None) and (limits is not None):
             # Error checking on limits in parinfo
             if numpy.any((limited[:,0] & (xall < limits[:,0])) | (limited[:,1] & (xall > limits[:,1]))):
-                self.errmsg = 'ERROR: parameters are not within PARINFO limits'
-                return
+                raise RuntimeError('ERROR: parameters are not within PARINFO limits')
             if numpy.any((limited[:,0] & limited[:,1]) & (limits[:,0] >= limits[:,1]) & (pfixed == 0)):
-                self.errmsg = 'ERROR: PARINFO parameter limits are not consistent'
-                return
+                raise RuntimeError('ERROR: PARINFO parameter limits are not consistent')
 
             # Transfer structure values to local variables
             qulim = (limited[:,1])[ifree]
@@ -978,42 +962,32 @@ class mpfit(object):
 
         n = len(x)
         # Check input parameters for errors
-        if (n < 0) or (ftol <= 0) or (xtol <= 0) or (gtol <= 0) \
-                    or (maxiter < 0) or (factor <= 0):
-            self.errmsg = 'ERROR: input keywords are inconsistent'
-            return
+        assert n >=0 and ftol > 0 and xtol > 0 and gtol > 0 and maxiter >= 0 and factor > 0
 
-        if rescale != 0:
-            self.errmsg = 'ERROR: DIAG parameter scales are inconsistent'
-            if len(diag) < n:
-                return
-            if numpy.any(diag <= 0):
-                return
-            self.errmsg = ''
+        if rescale != 0 and (len(diag) < n or numpy.any(diag <= 0)):
+            raise RuntimeError('ERROR: DIAG parameter scales are inconsistent')
 
         [self.status, fvec] = self.call(fcn, self.params, functkw)
 
         if self.status < 0:
-            self.errmsg = 'ERROR: first call to "'+str(fcn)+'" failed'
-            return
+            raise RuntimeError('ERROR: first call to "'+str(fcn)+'" failed')
         # If the returned fvec has more than four bits I assume that we have
         # double precision
         # It is important that the machar is determined by the precision of
         # the returned value, not by the precision of the input array
         if numpy.array([fvec]).dtype.itemsize>4:
-            self.machar = machar(double=1)
+            self.machar = numpy.finfo(numpy.float64)
             self.blas_enorm = mpfit.blas_enorm64
         else:
-            self.machar = machar(double=0)
+            self.machar = numpy.finfo(numpy.float32)
             self.blas_enorm = mpfit.blas_enorm32
-        machep = self.machar.machep
+        machep = self.machar.eps
 
         m = len(fvec)
         if m < n:
-            self.errmsg = 'ERROR: number of parameters must not exceed data'
-            return
+            raise RuntimeError('ERROR: number of parameters must not exceed data')
         self.dof = m-nfree
-        self.fnorm = self.enorm(fvec)
+        self.fnorm = self.blas_enorm(fvec)
 
         # Initialize Levelberg-Marquardt parameter and iteration counter
 
@@ -1030,39 +1004,34 @@ class mpfit(object):
             if self.qanytied:
                 self.params = self.tie(self.params, ptied)
 
-            if (nprint > 0) and (iterfunct is not None):
-                if ((self.niter-1) % nprint) == 0:
-                    mperr = 0
-                    xnew0 = self.params.copy()
+            if (nprint > 0) and (iterfunct is not None) and ((self.niter - 1) % nprint == 0):
+                xnew0 = self.params.copy()
 
-                    dof = numpy.max([len(fvec) - len(x), 0])
-                    status = iterfunct(fcn, self.params, self.niter, self.fnorm**2,functkw=functkw, parinfo=parinfo, quiet=quiet, dof=dof, **iterkw)
-                    if status is not None:
-                        self.status = status
+                dof = numpy.max([len(fvec) - len(x), 0])
+                status = iterfunct(fcn, self.params, self.niter, self.fnorm**2,functkw=functkw, parinfo=parinfo, quiet=quiet, dof=dof, **iterkw)
+                if status is not None:
+                    self.status = status
 
-                    # Check for user termination
-                    if self.status < 0:
-                        self.errmsg = 'WARNING: premature termination by ' + str(iterfunct)
-                        return
+                # Check for user termination
+                if self.status < 0:
+                    raise RuntimeError('WARNING: premature termination by ' + str(iterfunct))
 
-                    # If parameters were changed (grrr..) then re-tie
-                    if numpy.max(numpy.abs(xnew0-self.params)) > 0:
-                        if self.qanytied:
-                            self.params = self.tie(self.params, ptied)
-                        x = self.params[ifree]
-
+                # If parameters were changed (grrr..) then re-tie
+                if numpy.max(numpy.abs(xnew0-self.params)) > 0:
+                    if self.qanytied:
+                        self.params = self.tie(self.params, ptied)
+                    x = self.params[ifree]
 
             # Calculate the jacobian matrix
             self.status = 2
-            catch_msg = 'calling MPFIT_FDJAC2'
+            self.catch_msg = 'calling MPFIT_FDJAC2'
             fjac = self.fdjac2(fcn, x, fvec, step, qulim, ulim, dside, epsfcn=epsfcn, autoderivative=autoderivative, dstep=dstep, functkw=functkw, ifree=ifree, xall=self.params)
             if fjac is None:
-                self.errmsg = 'WARNING: premature termination by FDJAC2'
-                return
+                raise RuntimeError('WARNING: premature termination by FDJAC2')
 
             # Determine if any of the parameters are pegged at the limits
             if qanylim:
-                catch_msg = 'zeroing derivatives of pegged parameters'
+                self.catch_msg = 'zeroing derivatives of pegged parameters'
                 whlpeg = (numpy.nonzero(qllim & (x == llim)))[0]
                 nlpeg = len(whlpeg)
                 whupeg = (numpy.nonzero(qulim & (x == ulim)))[0]
@@ -1086,7 +1055,7 @@ class mpfit(object):
 
             # On the first iteration if "diag" is unspecified, scale
             # according to the norms of the columns of the initial jacobian
-            catch_msg = 'rescaling diagonal elements'
+            self.catch_msg = 'rescaling diagonal elements'
             if self.niter == 1:
                 if (rescale==0) or (len(diag) < n):
                     diag = wa2.copy()
@@ -1095,13 +1064,13 @@ class mpfit(object):
                 # On the first iteration, calculate the norm of the scaled x
                 # and initialize the step bound delta
                 wa3 = diag * x
-                xnorm = self.enorm(wa3)
+                xnorm = self.blas_enorm(wa3)
                 delta = factor*xnorm
                 if delta == 0.:
                     delta = factor
 
             # Form (q transpose)*fvec and store the first n components in qtf
-            catch_msg = 'forming (q transpose)*fvec'
+            self.catch_msg = 'forming (q transpose)*fvec'
             wa4 = fvec.copy()
             for j in range(n):
                 lj = ipvt[j]
@@ -1129,7 +1098,7 @@ class mpfit(object):
             #if ct GT 0 then goto, FAIL_OVERFLOW
 
             # Compute the norm of the scaled gradient
-            catch_msg = 'computing the scaled gradient'
+            self.catch_msg = 'computing the scaled gradient'
             gnorm = 0.
             if self.fnorm != 0:
                 for j in range(n):
@@ -1154,7 +1123,7 @@ class mpfit(object):
             while True:
 
                 # Determine the levenberg-marquardt parameter
-                catch_msg = 'calculating LM parameter (MPFIT_)'
+                self.catch_msg = 'calculating LM parameter (MPFIT_)'
                 [fjac, par, wa1, wa2] = self.lmpar(fjac, ipvt, diag, qtf, delta, wa1, wa2, par=par)
                 # Store the direction p and x+p. Calculate the norm of p
                 wa1 = -wa1
@@ -1173,7 +1142,7 @@ class mpfit(object):
 
                     if qanylim:
                         # Do not allow any steps out of bounds
-                        catch_msg = 'checking for a step out of bounds'
+                        self.catch_msg = 'checking for a step out of bounds'
                         if nlpeg > 0:
                             wa1[whlpeg] = numpy.clip( wa1[whlpeg], 0., numpy.max(wa1))
                         if nupeg > 0:
@@ -1218,7 +1187,7 @@ class mpfit(object):
                         wa2[wh] = llim[wh]
                 # endelse
                 wa3 = diag * wa1
-                pnorm = self.enorm(wa3)
+                pnorm = self.blas_enorm(wa3)
 
                 # On the first iteration, adjust the initial step bound
                 if self.niter == 1:
@@ -1227,16 +1196,14 @@ class mpfit(object):
                 self.params[ifree] = wa2
 
                 # Evaluate the function at x+p and calculate its norm
-                mperr = 0
-                catch_msg = 'calling '+str(fcn)
+                self.catch_msg = 'calling '+str(fcn)
                 [self.status, wa4] = self.call(fcn, self.params, functkw)
                 if self.status < 0:
-                    self.errmsg = 'WARNING: premature termination by "'+fcn+'"'
-                    return
-                fnorm1 = self.enorm(wa4)
+                    raise RuntimeError('WARNING: premature termination by "'+fcn+'"')
+                fnorm1 = self.blas_enorm(wa4)
 
                 # Compute the scaled actual reduction
-                catch_msg = 'computing convergence criteria'
+                self.catch_msg = 'computing convergence criteria'
                 actred = -1.
                 if (0.1 * fnorm1) < self.fnorm:
                     actred = - (fnorm1/self.fnorm)**2 + 1.
@@ -1249,7 +1216,7 @@ class mpfit(object):
 
                 # Remember, alpha is the fraction of the full LM step actually
                 # taken
-                temp1 = self.enorm(alpha*wa3)/self.fnorm
+                temp1 = self.blas_enorm(alpha*wa3)/self.fnorm
                 temp2 = (numpy.sqrt(alpha*par)*pnorm)/self.fnorm
                 prered = temp1*temp1 + (temp2*temp2)/0.5
                 dirder = -(temp1*temp1 + temp2*temp2)
@@ -1280,7 +1247,7 @@ class mpfit(object):
                     x = wa2
                     wa2 = diag * x
                     fvec = wa4
-                    xnorm = self.enorm(wa2)
+                    xnorm = self.blas_enorm(wa2)
                     self.fnorm = fnorm1
                     self.niter = self.niter + 1
 
@@ -1314,7 +1281,7 @@ class mpfit(object):
                 # Check for over/underflow
                 if ~numpy.all(numpy.isfinite(wa1) & numpy.isfinite(wa2) & \
                             numpy.isfinite(x)) or ~numpy.isfinite(ratio):
-                    errmsg = ('''ERROR: parameter or function value(s) have become
+                    print('''ERROR: parameter or function value(s) have become
                         'infinite; check model function for over- 'and underflow''')
                     self.status = -16
                     break
@@ -1325,7 +1292,7 @@ class mpfit(object):
                 break
         # End of outer loop.
 
-        catch_msg = 'in the termination phase'
+        self.catch_msg = 'in the termination phase'
         # Termination, either normal or user imposed.
         if len(self.params) == 0:
             return
@@ -1334,10 +1301,10 @@ class mpfit(object):
         else:
             self.params[ifree] = x
         if (nprint > 0) and (self.status > 0):
-            catch_msg = 'calling ' + str(fcn)
+            self.catch_msg = 'calling ' + str(fcn)
             [status, fvec] = self.call(fcn, self.params, functkw)
-            catch_msg = 'in the termination phase'
-            self.fnorm = self.enorm(fvec)
+            self.catch_msg = 'in the termination phase'
+            self.fnorm = self.blas_enorm(fvec)
 
         if (self.fnorm is not None) and (fnorm1 is not None):
             self.fnorm = numpy.max([self.fnorm, fnorm1])
@@ -1352,7 +1319,7 @@ class mpfit(object):
             if (n > 0) and (sz[0] >= n) and (sz[1] >= n) \
                 and (len(ipvt) >= n):
 
-                catch_msg = 'computing the covariance matrix'
+                self.catch_msg = 'computing the covariance matrix'
                 cv = self.calc_covar(fjac[0:n,0:n], ipvt[0:n])
                 cv.shape = [n, n]
                 nn = len(xall)
@@ -1364,7 +1331,7 @@ class mpfit(object):
                     self.covar[ifree,ifree[i]] = cv[:,i]
 
                 # Compute errors in parameters
-                catch_msg = 'computing parameter errors'
+                self.catch_msg = 'computing parameter errors'
                 self.perror = numpy.zeros(nn, dtype=float)
                 d = numpy.diagonal(self.covar)
                 wh = (numpy.nonzero(d >= 0))[0]
@@ -1376,18 +1343,15 @@ class mpfit(object):
     def __str__(self):
         return {'params': self.params,
                 'niter': self.niter,
-                'params': self.params,
                 'covar': self.covar,
                 'perror': self.perror,
                 'status': self.status,
                 'debug': self.debug,
-                'errmsg': self.errmsg,
                 'nfev': self.nfev,
                 'damp': self.damp
-                #,'machar':self.machar
                }.__str__()
 
-    def defiter(self, fcn, x, iter, fnorm=None, functkw=None, quiet=0, iterstop=None, parinfo=None,format=None, pformat='%.10g', dof=1):
+    def defiter(self, fcn, x, iiter, fnorm=None, functkw=None, quiet=0, parinfo=None,pformat='%.10g', dof=1):
         """Default procedure to be called every iteration.  It simply prints the parameter values."""
 
         if self.debug:
@@ -1395,12 +1359,12 @@ class mpfit(object):
         if quiet:
             return
         if fnorm is None:
-            [status, fvec] = self.call(fcn, x, functkw)
-            fnorm = self.enorm(fvec)**2
+            [_, fvec] = self.call(fcn, x, functkw)
+            fnorm = self.blas_enorm(fvec)**2
 
         # Determine which parameters to print
         nprint = len(x)
-        print("Iter ", ('%6i' % iter),"   CHI-SQUARE = ",('%.10g' % fnorm)," DOF = ", ('%i' % dof))
+        print("Iter ", ('%6i' % iiter),"   CHI-SQUARE = ",('%.10g' % fnorm)," DOF = ", ('%i' % dof))
         for i in range(nprint):
             if (parinfo is not None) and ('parname' in parinfo[i]):
                 p = '   ' + parinfo[i]['parname'] + ' = '
@@ -1425,14 +1389,13 @@ class mpfit(object):
     #          read, k
     #          if strupcase(strmid(k,0,1)) EQ 'Y' then begin
     #              message, 'WARNING: Procedure is terminating.', /info
-    #              mperr = -1
     #          endif
     #      endif
     #  endif
 
 
-    # Procedure to parse the parameter values in PARINFO, which is a list of dictionaries
     def parinfo(self, parinfo=None, key='a', default=None, n=0):
+        """Procedure to parse the parameter values in PARINFO, which is a list of dictionaries"""
         if self.debug:
             print('Entering parinfo...')
         if (n == 0) and (parinfo is not None):
@@ -1458,9 +1421,8 @@ class mpfit(object):
             values = numpy.asarray(values, float)
         return values
 
-    # Call user function or procedure, with _EXTRA or not, with
-    # derivatives or not.
     def call(self, fcn, x, functkw, fjac=None):
+        """Call user function or procedure, with _EXTRA or not, with derivatives or not."""
         if self.debug:
             print('Entering call...')
         if self.qanytied:
@@ -1478,18 +1440,14 @@ class mpfit(object):
             return fcn(x, fjac=fjac, **functkw)
 
 
-    def enorm(self, vec):
-        ans = self.blas_enorm(vec)
-        return ans
-
-
     def fdjac2(self, fcn, x, fvec, step=None, ulimited=None, ulimit=None, dside=None,
                epsfcn=None, autoderivative=1,
                functkw=None, xall=None, ifree=None, dstep=None):
+        """Compute Jacobian matrix"""
 
         if self.debug:
             print('Entering fdjac2...')
-        machep = self.machar.machep
+        machep = self.machar.eps
         if epsfcn is None:
             epsfcn = machep
         if xall is None:
@@ -1506,7 +1464,6 @@ class mpfit(object):
 
         # Compute analytical derivative if requested
         if autoderivative == 0:
-            mperr = 0
             fjac = numpy.zeros(nall, dtype=float)
             fjac[ifree] = 1.0  # Specify which parameters need derivatives
             [status, fp] = self.call(fcn, xall, functkw, fjac=fjac)
@@ -1576,7 +1533,6 @@ class mpfit(object):
                 # COMPUTE THE TWO-SIDED DERIVATIVE
                 xp[ifree[j]] = xall[ifree[j]] - h[j]
 
-                mperr = 0
                 [status, fm] = self.call(fcn, xp, functkw)
                 if status < 0:
                     return None
@@ -1586,143 +1542,143 @@ class mpfit(object):
         return fjac
 
 
-
-    #     Original FORTRAN documentation
-    #     **********
-    #
-    #     subroutine qrfac
-    #
-    #     this subroutine uses householder transformations with column
-    #     pivoting (optional) to compute a qr factorization of the
-    #     m by n matrix a. that is, qrfac determines an orthogonal
-    #     matrix q, a permutation matrix p, and an upper trapezoidal
-    #     matrix r with diagonal elements of nonincreasing magnitude,
-    #     such that a*p = q*r. the householder transformation for
-    #     column k, k = 1,2,...,min(m,n), is of the form
-    #
-    #                        t
-    #        i - (1/u(k))*u*u
-    #
-    #     where u has zeros in the first k-1 positions. the form of
-    #     this transformation and the method of pivoting first
-    #     appeared in the corresponding linpack subroutine.
-    #
-    #     the subroutine statement is
-    #
-    #    subroutine qrfac(m,n,a,lda,pivot,ipvt,lipvt,rdiag,acnorm,wa)
-    #
-    #     where
-    #
-    #    m is a positive integer input variable set to the number
-    #      of rows of a.
-    #
-    #    n is a positive integer input variable set to the number
-    #      of columns of a.
-    #
-    #    a is an m by n array. on input a contains the matrix for
-    #      which the qr factorization is to be computed. on output
-    #      the strict upper trapezoidal part of a contains the strict
-    #      upper trapezoidal part of r, and the lower trapezoidal
-    #      part of a contains a factored form of q (the non-trivial
-    #      elements of the u vectors described above).
-    #
-    #    lda is a positive integer input variable not less than m
-    #      which specifies the leading dimension of the array a.
-    #
-    #    pivot is a logical input variable. if pivot is set true,
-    #      then column pivoting is enforced. if pivot is set false,
-    #      then no column pivoting is done.
-    #
-    #    ipvt is an integer output array of length lipvt. ipvt
-    #      defines the permutation matrix p such that a*p = q*r.
-    #      column j of p is column ipvt(j) of the identity matrix.
-    #      if pivot is false, ipvt is not referenced.
-    #
-    #    lipvt is a positive integer input variable. if pivot is false,
-    #      then lipvt may be as small as 1. if pivot is true, then
-    #      lipvt must be at least n.
-    #
-    #    rdiag is an output array of length n which contains the
-    #      diagonal elements of r.
-    #
-    #    acnorm is an output array of length n which contains the
-    #      norms of the corresponding columns of the input matrix a.
-    #      if this information is not needed, then acnorm can coincide
-    #      with rdiag.
-    #
-    #    wa is a work array of length n. if pivot is false, then wa
-    #      can coincide with rdiag.
-    #
-    #     subprograms called
-    #
-    #    minpack-supplied ... dpmpar,enorm
-    #
-    #    fortran-supplied ... dmax1,dsqrt,min0
-    #
-    #     argonne national laboratory. minpack project. march 1980.
-    #     burton s. garbow, kenneth e. hillstrom, jorge j. more
-    #
-    #     **********
-    #
-    # PIVOTING / PERMUTING:
-    #
-    # Upon return, A(*,*) is in standard parameter order, A(*,IPVT) is in
-    # permuted order.
-    #
-    # RDIAG is in permuted order.
-    # ACNORM is in standard parameter order.
-    #
-    #
-    # NOTE: in IDL the factors appear slightly differently than described
-    # above.  The matrix A is still m x n where m >= n.
-    #
-    # The "upper" triangular matrix R is actually stored in the strict
-    # lower left triangle of A under the standard notation of IDL.
-    #
-    # The reflectors that generate Q are in the upper trapezoid of A upon
-    # output.
-    #
-    #  EXAMPLE:  decompose the matrix [[9.,2.,6.],[4.,8.,7.]]
-    #    aa = [[9.,2.,6.],[4.,8.,7.]]
-    #    mpfit_qrfac, aa, aapvt, rdiag, aanorm
-    #     IDL> print, aa
-    #          1.81818*     0.181818*     0.545455*
-    #         -8.54545+      1.90160*     0.432573*
-    #     IDL> print, rdiag
-    #         -11.0000+     -7.48166+
-    #
-    # The components marked with a * are the components of the
-    # reflectors, and those marked with a + are components of R.
-    #
-    # To reconstruct Q and R we proceed as follows.  First R.
-    #    r = fltarr(m, n)
-    #    for i = 0, n-1 do r(0:i,i) = aa(0:i,i)  # fill in lower diag
-    #    r(lindgen(n)*(m+1)) = rdiag
-    #
-    # Next, Q, which are composed from the reflectors.  Each reflector v
-    # is taken from the upper trapezoid of aa, and converted to a matrix
-    # via (I - 2 vT . v / (v . vT)).
-    #
-    #   hh = ident                                    # identity matrix
-    #   for i = 0, n-1 do begin
-    #    v = aa(*,i) & if i GT 0 then v(0:i-1) = 0    # extract reflector
-    #    hh = hh # (ident - 2*(v # v)/total(v * v))  # generate matrix
-    #   endfor
-    #
-    # Test the result:
-    #    IDL> print, hh # transpose(r)
-    #          9.00000      4.00000
-    #          2.00000      8.00000
-    #          6.00000      7.00000
-    #
-    # Note that it is usually never necessary to form the Q matrix
-    # explicitly, and MPFIT does not.
-
-
     def qrfac(self, a, pivot=0):
+        """
+         Original FORTRAN documentation
+         **********
 
-        if self.debug: print('Entering qrfac...')
-        machep = self.machar.machep
+         subroutine qrfac
+
+         this subroutine uses householder transformations with column
+         pivoting (optional) to compute a qr factorization of the
+         m by n matrix a. that is, qrfac determines an orthogonal
+         matrix q, a permutation matrix p, and an upper trapezoidal
+         matrix r with diagonal elements of nonincreasing magnitude,
+         such that a*p = q*r. the householder transformation for
+         column k, k = 1,2,...,min(m,n), is of the form
+
+                            t
+            i - (1/u(k))*u*u
+
+         where u has zeros in the first k-1 positions. the form of
+         this transformation and the method of pivoting first
+         appeared in the corresponding linpack subroutine.
+
+         the subroutine statement is
+
+        subroutine qrfac(m,n,a,lda,pivot,ipvt,lipvt,rdiag,acnorm,wa)
+
+         where
+
+        m is a positive integer input variable set to the number
+          of rows of a.
+
+        n is a positive integer input variable set to the number
+          of columns of a.
+
+        a is an m by n array. on input a contains the matrix for
+          which the qr factorization is to be computed. on output
+          the strict upper trapezoidal part of a contains the strict
+          upper trapezoidal part of r, and the lower trapezoidal
+          part of a contains a factored form of q (the non-trivial
+          elements of the u vectors described above).
+
+        lda is a positive integer input variable not less than m
+          which specifies the leading dimension of the array a.
+
+        pivot is a logical input variable. if pivot is set true,
+          then column pivoting is enforced. if pivot is set false,
+          then no column pivoting is done.
+
+        ipvt is an integer output array of length lipvt. ipvt
+          defines the permutation matrix p such that a*p = q*r.
+          column j of p is column ipvt(j) of the identity matrix.
+          if pivot is false, ipvt is not referenced.
+
+        lipvt is a positive integer input variable. if pivot is false,
+          then lipvt may be as small as 1. if pivot is true, then
+          lipvt must be at least n.
+
+        rdiag is an output array of length n which contains the
+          diagonal elements of r.
+
+        acnorm is an output array of length n which contains the
+          norms of the corresponding columns of the input matrix a.
+          if this information is not needed, then acnorm can coincide
+          with rdiag.
+
+        wa is a work array of length n. if pivot is false, then wa
+          can coincide with rdiag.
+
+         subprograms called
+
+        minpack-supplied ... dpmpar,enorm
+
+        fortran-supplied ... dmax1,dsqrt,min0
+
+         argonne national laboratory. minpack project. march 1980.
+         burton s. garbow, kenneth e. hillstrom, jorge j. more
+
+         **********
+
+     PIVOTING / PERMUTING:
+
+     Upon return, A(*,*) is in standard parameter order, A(*,IPVT) is in
+     permuted order.
+
+     RDIAG is in permuted order.
+     ACNORM is in standard parameter order.
+
+
+     NOTE: in IDL the factors appear slightly differently than described
+     above.  The matrix A is still m x n where m >= n.
+
+     The "upper" triangular matrix R is actually stored in the strict
+     lower left triangle of A under the standard notation of IDL.
+
+     The reflectors that generate Q are in the upper trapezoid of A upon
+     output.
+
+      EXAMPLE:  decompose the matrix [[9.,2.,6.],[4.,8.,7.]]
+        aa = [[9.,2.,6.],[4.,8.,7.]]
+        mpfit_qrfac, aa, aapvt, rdiag, aanorm
+         IDL> print, aa
+              1.81818*     0.181818*     0.545455*
+             -8.54545+      1.90160*     0.432573*
+         IDL> print, rdiag
+             -11.0000+     -7.48166+
+
+     The components marked with a * are the components of the
+     reflectors, and those marked with a + are components of R.
+
+     To reconstruct Q and R we proceed as follows.  First R.
+        r = fltarr(m, n)
+        for i = 0, n-1 do r(0:i,i) = aa(0:i,i)  # fill in lower diag
+        r(lindgen(n)*(m+1)) = rdiag
+
+     Next, Q, which are composed from the reflectors.  Each reflector v
+     is taken from the upper trapezoid of aa, and converted to a matrix
+     via (I - 2 vT . v / (v . vT)).
+
+       hh = ident                                    # identity matrix
+       for i = 0, n-1 do begin
+        v = aa(*,i) & if i GT 0 then v(0:i-1) = 0    # extract reflector
+        hh = hh # (ident - 2*(v # v)/total(v * v))  # generate matrix
+       endfor
+
+     Test the result:
+        IDL> print, hh # transpose(r)
+              9.00000      4.00000
+              2.00000      8.00000
+              6.00000      7.00000
+
+     Note that it is usually never necessary to form the Q matrix
+     explicitly, and MPFIT does not.
+        """
+
+        if self.debug:
+            print('Entering qrfac...')
+        machep = self.machar.eps
         sz = a.shape
         m = sz[0]
         n = sz[1]
@@ -1730,7 +1686,7 @@ class mpfit(object):
         # Compute the initial column norms and initialize arrays
         acnorm = numpy.zeros(n, dtype=float)
         for j in range(n):
-            acnorm[j] = self.enorm(a[:,j])
+            acnorm[j] = self.blas_enorm(a[:,j])
         rdiag = acnorm.copy()
         wa = rdiag.copy()
         ipvt = numpy.arange(n)
@@ -1752,7 +1708,9 @@ class mpfit(object):
                     # exchange occurs later, within the body of MPFIT, after the
                     # extraneous columns of the matrix have been shed.
                     if kmax != j:
-                        temp = ipvt[j] ; ipvt[j] = ipvt[kmax] ; ipvt[kmax] = temp
+                        temp = ipvt[j]
+                        ipvt[j] = ipvt[kmax]
+                        ipvt[kmax] = temp
                         rdiag[kmax] = rdiag[j]
                         wa[kmax] = wa[j]
 
@@ -1760,7 +1718,7 @@ class mpfit(object):
             # column of A to a multiple of the jth unit vector
             lj = ipvt[j]
             ajj = a[j:,lj]
-            ajnorm = self.enorm(ajj)
+            ajnorm = self.blas_enorm(ajj)
             if ajnorm == 0:
                 break
             if a[j,lj] < 0:
@@ -1790,95 +1748,96 @@ class mpfit(object):
                             rdiag[k] = rdiag[k] * numpy.sqrt(numpy.max([(1.-temp**2), 0.]))
                             temp = rdiag[k]/wa[k]
                             if (0.05*temp*temp) <= machep:
-                                rdiag[k] = self.enorm(a[j+1:,lk])
+                                rdiag[k] = self.blas_enorm(a[j+1:,lk])
                                 wa[k] = rdiag[k]
             rdiag[j] = -ajnorm
         return [a, ipvt, rdiag, acnorm]
 
 
-    #     Original FORTRAN documentation
-    #     **********
-    #
-    #     subroutine qrsolv
-    #
-    #     given an m by n matrix a, an n by n diagonal matrix d,
-    #     and an m-vector b, the problem is to determine an x which
-    #     solves the system
-    #
-    #           a*x = b ,     d*x = 0 ,
-    #
-    #     in the least squares sense.
-    #
-    #     this subroutine completes the solution of the problem
-    #     if it is provided with the necessary information from the
-    #     factorization, with column pivoting, of a. that is, if
-    #     a*p = q*r, where p is a permutation matrix, q has orthogonal
-    #     columns, and r is an upper triangular matrix with diagonal
-    #     elements of nonincreasing magnitude, then qrsolv expects
-    #     the full upper triangle of r, the permutation matrix p,
-    #     and the first n components of (q transpose)*b. the system
-    #     a*x = b, d*x = 0, is then equivalent to
-    #
-    #                  t       t
-    #           r*z = q *b ,  p *d*p*z = 0 ,
-    #
-    #     where x = p*z. if this system does not have full rank,
-    #     then a least squares solution is obtained. on output qrsolv
-    #     also provides an upper triangular matrix s such that
-    #
-    #            t   t               t
-    #           p *(a *a + d*d)*p = s *s .
-    #
-    #     s is computed within qrsolv and may be of separate interest.
-    #
-    #     the subroutine statement is
-    #
-    #       subroutine qrsolv(n,r,ldr,ipvt,diag,qtb,x,sdiag,wa)
-    #
-    #     where
-    #
-    #       n is a positive integer input variable set to the order of r.
-    #
-    #       r is an n by n array. on input the full upper triangle
-    #         must contain the full upper triangle of the matrix r.
-    #         on output the full upper triangle is unaltered, and the
-    #         strict lower triangle contains the strict upper triangle
-    #         (transposed) of the upper triangular matrix s.
-    #
-    #       ldr is a positive integer input variable not less than n
-    #         which specifies the leading dimension of the array r.
-    #
-    #       ipvt is an integer input array of length n which defines the
-    #         permutation matrix p such that a*p = q*r. column j of p
-    #         is column ipvt(j) of the identity matrix.
-    #
-    #       diag is an input array of length n which must contain the
-    #         diagonal elements of the matrix d.
-    #
-    #       qtb is an input array of length n which must contain the first
-    #         n elements of the vector (q transpose)*b.
-    #
-    #       x is an output array of length n which contains the least
-    #         squares solution of the system a*x = b, d*x = 0.
-    #
-    #       sdiag is an output array of length n which contains the
-    #         diagonal elements of the upper triangular matrix s.
-    #
-    #       wa is a work array of length n.
-    #
-    #     subprograms called
-    #
-    #       fortran-supplied ... dabs,dsqrt
-    #
-    #     argonne national laboratory. minpack project. march 1980.
-    #     burton s. garbow, kenneth e. hillstrom, jorge j. more
-    #
-
     def qrsolv(self, r, ipvt, diag, qtb, sdiag):
+        """
+        Original FORTRAN documentation
+         **********
+
+         subroutine qrsolv
+
+         given an m by n matrix a, an n by n diagonal matrix d,
+         and an m-vector b, the problem is to determine an x which
+         solves the system
+
+               a*x = b ,     d*x = 0 ,
+
+         in the least squares sense.
+
+         this subroutine completes the solution of the problem
+         if it is provided with the necessary information from the
+         factorization, with column pivoting, of a. that is, if
+         a*p = q*r, where p is a permutation matrix, q has orthogonal
+         columns, and r is an upper triangular matrix with diagonal
+         elements of nonincreasing magnitude, then qrsolv expects
+         the full upper triangle of r, the permutation matrix p,
+         and the first n components of (q transpose)*b. the system
+         a*x = b, d*x = 0, is then equivalent to
+
+                      t       t
+               r*z = q *b ,  p *d*p*z = 0 ,
+
+         where x = p*z. if this system does not have full rank,
+         then a least squares solution is obtained. on output qrsolv
+         also provides an upper triangular matrix s such that
+
+                t   t               t
+               p *(a *a + d*d)*p = s *s .
+
+         s is computed within qrsolv and may be of separate interest.
+
+         the subroutine statement is
+
+           subroutine qrsolv(n,r,ldr,ipvt,diag,qtb,x,sdiag,wa)
+
+         where
+
+           n is a positive integer input variable set to the order of r.
+
+           r is an n by n array. on input the full upper triangle
+             must contain the full upper triangle of the matrix r.
+             on output the full upper triangle is unaltered, and the
+             strict lower triangle contains the strict upper triangle
+             (transposed) of the upper triangular matrix s.
+
+           ldr is a positive integer input variable not less than n
+             which specifies the leading dimension of the array r.
+
+           ipvt is an integer input array of length n which defines the
+             permutation matrix p such that a*p = q*r. column j of p
+             is column ipvt(j) of the identity matrix.
+
+           diag is an input array of length n which must contain the
+             diagonal elements of the matrix d.
+
+           qtb is an input array of length n which must contain the first
+             n elements of the vector (q transpose)*b.
+
+           x is an output array of length n which contains the least
+             squares solution of the system a*x = b, d*x = 0.
+
+           sdiag is an output array of length n which contains the
+             diagonal elements of the upper triangular matrix s.
+
+           wa is a work array of length n.
+
+         subprograms called
+
+           fortran-supplied ... dabs,dsqrt
+
+         argonne national laboratory. minpack project. march 1980.
+         burton s. garbow, kenneth e. hillstrom, jorge j. more
+        """
+
+
         if self.debug:
             print('Entering qrsolv...')
         sz = r.shape
-        m = sz[0]
         n = sz[1]
 
         # copy r and (q transpose)*b to preserve input and initialize s.
@@ -1949,110 +1908,106 @@ class mpfit(object):
         return (r, x, sdiag)
 
 
-
-
-    #     Original FORTRAN documentation
-    #
-    #     subroutine lmpar
-    #
-    #     given an m by n matrix a, an n by n nonsingular diagonal
-    #     matrix d, an m-vector b, and a positive number delta,
-    #     the problem is to determine a value for the parameter
-    #     par such that if x solves the system
-    #
-    #        a*x = b ,     sqrt(par)*d*x = 0 ,
-    #
-    #     in the least squares sense, and dxnorm is the euclidean
-    #     norm of d*x, then either par is zero and
-    #
-    #        (dxnorm-delta) .le. 0.1*delta ,
-    #
-    #     or par is positive and
-    #
-    #        abs(dxnorm-delta) .le. 0.1*delta .
-    #
-    #     this subroutine completes the solution of the problem
-    #     if it is provided with the necessary information from the
-    #     qr factorization, with column pivoting, of a. that is, if
-    #     a*p = q*r, where p is a permutation matrix, q has orthogonal
-    #     columns, and r is an upper triangular matrix with diagonal
-    #     elements of nonincreasing magnitude, then lmpar expects
-    #     the full upper triangle of r, the permutation matrix p,
-    #     and the first n components of (q transpose)*b. on output
-    #     lmpar also provides an upper triangular matrix s such that
-    #
-    #         t   t                   t
-    #        p *(a *a + par*d*d)*p = s *s .
-    #
-    #     s is employed within lmpar and may be of separate interest.
-    #
-    #     only a few iterations are generally needed for convergence
-    #     of the algorithm. if, however, the limit of 10 iterations
-    #     is reached, then the output par will contain the best
-    #     value obtained so far.
-    #
-    #     the subroutine statement is
-    #
-    #    subroutine lmpar(n,r,ldr,ipvt,diag,qtb,delta,par,x,sdiag,
-    #                     wa1,wa2)
-    #
-    #     where
-    #
-    #    n is a positive integer input variable set to the order of r.
-    #
-    #    r is an n by n array. on input the full upper triangle
-    #      must contain the full upper triangle of the matrix r.
-    #      on output the full upper triangle is unaltered, and the
-    #      strict lower triangle contains the strict upper triangle
-    #      (transposed) of the upper triangular matrix s.
-    #
-    #    ldr is a positive integer input variable not less than n
-    #      which specifies the leading dimension of the array r.
-    #
-    #    ipvt is an integer input array of length n which defines the
-    #      permutation matrix p such that a*p = q*r. column j of p
-    #      is column ipvt(j) of the identity matrix.
-    #
-    #    diag is an input array of length n which must contain the
-    #      diagonal elements of the matrix d.
-    #
-    #    qtb is an input array of length n which must contain the first
-    #      n elements of the vector (q transpose)*b.
-    #
-    #    delta is a positive input variable which specifies an upper
-    #      bound on the euclidean norm of d*x.
-    #
-    #    par is a nonnegative variable. on input par contains an
-    #      initial estimate of the levenberg-marquardt parameter.
-    #      on output par contains the final estimate.
-    #
-    #    x is an output array of length n which contains the least
-    #      squares solution of the system a*x = b, sqrt(par)*d*x = 0,
-    #      for the output par.
-    #
-    #    sdiag is an output array of length n which contains the
-    #      diagonal elements of the upper triangular matrix s.
-    #
-    #    wa1 and wa2 are work arrays of length n.
-    #
-    #     subprograms called
-    #
-    #    minpack-supplied ... dpmpar,enorm,qrsolv
-    #
-    #    fortran-supplied ... dabs,dmax1,dmin1,dsqrt
-    #
-    #     argonne national laboratory. minpack project. march 1980.
-    #     burton s. garbow, kenneth e. hillstrom, jorge j. more
-    #
-
     def lmpar(self, r, ipvt, diag, qtb, delta, x, sdiag, par=None):
+        """
+         Original FORTRAN documentation
 
+         subroutine lmpar
+
+         given an m by n matrix a, an n by n nonsingular diagonal
+         matrix d, an m-vector b, and a positive number delta,
+         the problem is to determine a value for the parameter
+         par such that if x solves the system
+
+            a*x = b ,     sqrt(par)*d*x = 0 ,
+
+         in the least squares sense, and dxnorm is the euclidean
+         norm of d*x, then either par is zero and
+
+            (dxnorm-delta) .le. 0.1*delta ,
+
+         or par is positive and
+
+            abs(dxnorm-delta) .le. 0.1*delta .
+
+         this subroutine completes the solution of the problem
+         if it is provided with the necessary information from the
+         qr factorization, with column pivoting, of a. that is, if
+         a*p = q*r, where p is a permutation matrix, q has orthogonal
+         columns, and r is an upper triangular matrix with diagonal
+         elements of nonincreasing magnitude, then lmpar expects
+         the full upper triangle of r, the permutation matrix p,
+         and the first n components of (q transpose)*b. on output
+         lmpar also provides an upper triangular matrix s such that
+
+             t   t                   t
+            p *(a *a + par*d*d)*p = s *s .
+
+         s is employed within lmpar and may be of separate interest.
+
+         only a few iterations are generally needed for convergence
+         of the algorithm. if, however, the limit of 10 iterations
+         is reached, then the output par will contain the best
+         value obtained so far.
+
+         the subroutine statement is
+
+        subroutine lmpar(n,r,ldr,ipvt,diag,qtb,delta,par,x,sdiag,
+                         wa1,wa2)
+
+         where
+
+        n is a positive integer input variable set to the order of r.
+
+        r is an n by n array. on input the full upper triangle
+          must contain the full upper triangle of the matrix r.
+          on output the full upper triangle is unaltered, and the
+          strict lower triangle contains the strict upper triangle
+          (transposed) of the upper triangular matrix s.
+
+        ldr is a positive integer input variable not less than n
+          which specifies the leading dimension of the array r.
+
+        ipvt is an integer input array of length n which defines the
+          permutation matrix p such that a*p = q*r. column j of p
+          is column ipvt(j) of the identity matrix.
+
+        diag is an input array of length n which must contain the
+          diagonal elements of the matrix d.
+
+        qtb is an input array of length n which must contain the first
+          n elements of the vector (q transpose)*b.
+
+        delta is a positive input variable which specifies an upper
+          bound on the euclidean norm of d*x.
+
+        par is a nonnegative variable. on input par contains an
+          initial estimate of the levenberg-marquardt parameter.
+          on output par contains the final estimate.
+
+        x is an output array of length n which contains the least
+          squares solution of the system a*x = b, sqrt(par)*d*x = 0,
+          for the output par.
+
+        sdiag is an output array of length n which contains the
+          diagonal elements of the upper triangular matrix s.
+
+        wa1 and wa2 are work arrays of length n.
+
+         subprograms called
+
+        minpack-supplied ... dpmpar,enorm,qrsolv
+
+        fortran-supplied ... dabs,dmax1,dmin1,dsqrt
+
+         argonne national laboratory. minpack project. march 1980.
+         burton s. garbow, kenneth e. hillstrom, jorge j. more
+        """
         if self.debug:
             print('Entering lmpar...')
-        dwarf = self.machar.minnum
-        machep = self.machar.machep
+        dwarf = self.machar.tiny
+        machep = self.machar.eps
         sz = r.shape
-        m = sz[0]
         n = sz[1]
 
         # Compute and store in x the gauss-newton direction.  If the
@@ -2076,9 +2031,9 @@ class mpfit(object):
 
         # Initialize the iteration counter.  Evaluate the function at the
         # origin, and test for acceptance of the gauss-newton direction
-        iter = 0
+        iiter = 0
         wa2 = diag * x
-        dxnorm = self.enorm(wa2)
+        dxnorm = self.blas_enorm(wa2)
         fp = dxnorm - delta
         if fp <= 0.1*delta:
             return [r, 0., x, sdiag]
@@ -2095,14 +2050,14 @@ class mpfit(object):
                 sum0 = sum(r[0:j,j]*wa1[0:j])
                 wa1[j] = (wa1[j] - sum0)/r[j,j]
 
-            temp = self.enorm(wa1)
+            temp = self.blas_enorm(wa1)
             parl = ((fp/delta)/temp)/temp
 
         # Calculate an upper bound, paru, for the zero of the function
         for j in range(n):
             sum0 = sum(r[0:j+1,j]*qtb[0:j+1])
             wa1[j] = sum0/diag[ipvt[j]]
-        gnorm = self.enorm(wa1)
+        gnorm = self.blas_enorm(wa1)
         paru = gnorm/delta
         if paru == 0:
             paru = dwarf/numpy.min([delta,0.1])
@@ -2116,8 +2071,8 @@ class mpfit(object):
             par = gnorm/dxnorm
 
         # Beginning of an interation
-        while(1):
-            iter = iter + 1
+        while True:
+            iiter += 1
 
             # Evaluate the function at the current value of par
             if par == 0:
@@ -2126,11 +2081,11 @@ class mpfit(object):
             wa1 = temp * diag
             [r, x, sdiag] = self.qrsolv(r, ipvt, wa1, qtb, sdiag)
             wa2 = diag*x
-            dxnorm = self.enorm(wa2)
+            dxnorm = self.blas_enorm(wa2)
             temp = fp
             fp = dxnorm - delta
 
-            if (numpy.abs(fp) <= 0.1*delta) or ((parl == 0) and (fp <= temp) and (temp < 0)) or (iter == 10):
+            if (numpy.abs(fp) <= 0.1*delta) or ((parl == 0) and (fp <= temp) and (temp < 0)) or (iiter == 10):
                 break
 
             # Compute the newton correction
@@ -2141,7 +2096,7 @@ class mpfit(object):
                 wa1[j+1:n] = wa1[j+1:n] - r[j+1:n,j]*wa1[j]
             wa1[n-1] = wa1[n-1]/sdiag[n-1] # Degenerate case
 
-            temp = self.enorm(wa1)
+            temp = self.blas_enorm(wa1)
             parc = ((fp/delta)/temp)/temp
 
             # Depending on the sign of the function, update parl or paru
@@ -2159,88 +2114,89 @@ class mpfit(object):
         return [r, par, x, sdiag]
 
 
-    # Procedure to tie one parameter to another.
     def tie(self, p, ptied=None):
+        """Procedure to tie one parameter to another."""
         if self.debug:
             print('Entering tie...')
         if ptied is None:
             return
-        for i in range(len(ptied)):
-            if ptied[i] == '':
+        for i, pp in enumerate(ptied):
+            if pp == '':
                 continue
-            cmd = 'p[' + str(i) + '] = ' + ptied[i]
+            cmd = 'p[' + str(i) + '] = ' + pp
             exec(cmd)
         return p
 
 
-    #     Original FORTRAN documentation
-    #     **********
-    #
-    #     subroutine covar
-    #
-    #     given an m by n matrix a, the problem is to determine
-    #     the covariance matrix corresponding to a, defined as
-    #
-    #                    t
-    #           inverse(a *a) .
-    #
-    #     this subroutine completes the solution of the problem
-    #     if it is provided with the necessary information from the
-    #     qr factorization, with column pivoting, of a. that is, if
-    #     a*p = q*r, where p is a permutation matrix, q has orthogonal
-    #     columns, and r is an upper triangular matrix with diagonal
-    #     elements of nonincreasing magnitude, then covar expects
-    #     the full upper triangle of r and the permutation matrix p.
-    #     the covariance matrix is then computed as
-    #
-    #                      t     t
-    #           p*inverse(r *r)*p  .
-    #
-    #     if a is nearly rank deficient, it may be desirable to compute
-    #     the covariance matrix corresponding to the linearly independent
-    #     columns of a. to define the numerical rank of a, covar uses
-    #     the tolerance tol. if l is the largest integer such that
-    #
-    #           abs(r(l,l)) .gt. tol*abs(r(1,1)) ,
-    #
-    #     then covar computes the covariance matrix corresponding to
-    #     the first l columns of r. for k greater than l, column
-    #     and row ipvt(k) of the covariance matrix are set to zero.
-    #
-    #     the subroutine statement is
-    #
-    #       subroutine covar(n,r,ldr,ipvt,tol,wa)
-    #
-    #     where
-    #
-    #       n is a positive integer input variable set to the order of r.
-    #
-    #       r is an n by n array. on input the full upper triangle must
-    #         contain the full upper triangle of the matrix r. on output
-    #         r contains the square symmetric covariance matrix.
-    #
-    #       ldr is a positive integer input variable not less than n
-    #         which specifies the leading dimension of the array r.
-    #
-    #       ipvt is an integer input array of length n which defines the
-    #         permutation matrix p such that a*p = q*r. column j of p
-    #         is column ipvt(j) of the identity matrix.
-    #
-    #       tol is a nonnegative input variable used to define the
-    #         numerical rank of a in the manner described above.
-    #
-    #       wa is a work array of length n.
-    #
-    #     subprograms called
-    #
-    #       fortran-supplied ... dabs
-    #
-    #     argonne national laboratory. minpack project. august 1980.
-    #     burton s. garbow, kenneth e. hillstrom, jorge j. more
-    #
-    #     **********
-
     def calc_covar(self, rr, ipvt=None, tol=1.e-14):
+        """
+         Original FORTRAN documentation
+         **********
+
+         subroutine covar
+
+         given an m by n matrix a, the problem is to determine
+         the covariance matrix corresponding to a, defined as
+
+                        t
+               inverse(a *a) .
+
+         this subroutine completes the solution of the problem
+         if it is provided with the necessary information from the
+         qr factorization, with column pivoting, of a. that is, if
+         a*p = q*r, where p is a permutation matrix, q has orthogonal
+         columns, and r is an upper triangular matrix with diagonal
+         elements of nonincreasing magnitude, then covar expects
+         the full upper triangle of r and the permutation matrix p.
+         the covariance matrix is then computed as
+
+                          t     t
+               p*inverse(r *r)*p  .
+
+         if a is nearly rank deficient, it may be desirable to compute
+         the covariance matrix corresponding to the linearly independent
+         columns of a. to define the numerical rank of a, covar uses
+         the tolerance tol. if l is the largest integer such that
+
+               abs(r(l,l)) .gt. tol*abs(r(1,1)) ,
+
+         then covar computes the covariance matrix corresponding to
+         the first l columns of r. for k greater than l, column
+         and row ipvt(k) of the covariance matrix are set to zero.
+
+         the subroutine statement is
+
+           subroutine covar(n,r,ldr,ipvt,tol,wa)
+
+         where
+
+           n is a positive integer input variable set to the order of r.
+
+           r is an n by n array. on input the full upper triangle must
+             contain the full upper triangle of the matrix r. on output
+             r contains the square symmetric covariance matrix.
+
+           ldr is a positive integer input variable not less than n
+             which specifies the leading dimension of the array r.
+
+           ipvt is an integer input array of length n which defines the
+             permutation matrix p such that a*p = q*r. column j of p
+             is column ipvt(j) of the identity matrix.
+
+           tol is a nonnegative input variable used to define the
+             numerical rank of a in the manner described above.
+
+           wa is a work array of length n.
+
+         subprograms called
+
+           fortran-supplied ... dabs
+
+         argonne national laboratory. minpack project. august 1980.
+         burton s. garbow, kenneth e. hillstrom, jorge j. more
+
+         **********
+         """
 
         if self.debug:
             print('Entering calc_covar...')
@@ -2303,20 +2259,3 @@ class mpfit(object):
             r[j,j] = wa[j]
 
         return r
-
-class machar:
-    def __init__(self, double=1):
-        if double == 0:
-            info = numpy.finfo(numpy.float32)
-        else:
-            info = numpy.finfo(numpy.float64)
-
-        self.machep = info.eps
-        self.maxnum = info.max
-        self.minnum = info.tiny
-
-        self.maxlog = numpy.log(self.maxnum)
-        self.minlog = numpy.log(self.minnum)
-        self.rdwarf = numpy.sqrt(self.minnum*1.5) * 10
-        self.rgiant = numpy.sqrt(self.maxnum) * 0.1
-
