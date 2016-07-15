@@ -3,7 +3,6 @@
 the neutral hydrogen density in *physical* atoms / cm^3
     Contains:
         StarFormation - Partially implements the star formation model of Springel & Hernquist 2003.
-        YajimaRT - implements a fit to the rt formula of Yajima 2011.
         RahmatiRT - implements a fit to the rt formula of Rahmati 2012.
                   get_code_rhoHI returns the rhoHI density as given by Arepo
     Method:
@@ -156,85 +155,6 @@ class StarFormation(object):
 
         return LambdaFF
 
-
-def get_tescari_rhoHI(star,bar,rho_phys_thresh=0.1):
-    """Get a neutral hydrogen density in cm^-2
-    applying the correction in eq. 1 of Tescari & Viel
-    Parameters:
-        bar = a baryon type from an HDF5 file.
-        rho_phys_thresh - physical SFR threshold density in hydrogen atoms/cm^3
-                        - 0.1 (Tornatore & Borgani 2007)
-                        - 0.1289 (derived from the SH star formation model)
-    Returns:
-        nH0 - the density of neutral hydrogen in these particles in atoms/cm^3
-    """
-    inH0=np.array(bar["NeutralHydrogenAbundance"],dtype=np.float64)
-    #Convert density to hydrogen atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
-    irho=np.array(bar["Density"],dtype=np.float64)*(star.UnitMass_in_g/star.UnitLength_in_cm**3)*star.hubble**2/(star.protonmass/star.hy_mass)
-    #Default density matches Tescari & Viel and Nagamine 2004
-    dens_ind=np.where(irho > rho_phys_thresh)
-    #UnitCoolingRate_in_cgs=UnitMass_in_g*(UnitVelocity_in_cm_per_s**3/UnitLength_in_cm**4)
-    #Note: CoolingRate is really internal energy / cooling time = u / t_cool
-    # HOWEVER, a CoolingRate of zero is really t_cool = 0, which is Lambda < 0, ie, heating.
-    #For the star formation we are interested in y ~ t_star/t_cool,
-    #So we want t_cool = InternalEnergy/CoolingRate,
-    #except when CoolingRate==0, when we want t_cool = 0
-    icool=np.array(bar["CoolingRate"],dtype=np.float64)
-    ienergy=np.array(bar["InternalEnergy"],dtype=np.float64)
-    cool=icool[dens_ind]
-    ind=np.where(cool == 0)
-    #Set cool to a very large number to avoid divide by zero
-    cool[ind]=1e99
-    tcool = ienergy[dens_ind]/cool
-    #Convert from internal time units, normally 9.8x10^8 yr/h to s.
-    tcool *= (star.UnitLength_in_cm/star.UnitVelocity_in_cm_per_s)/star.hubble # Now in s
-    fcold=star.cold_gas_frac(irho[dens_ind],tcool,rho_phys_thresh)
-    #Adjust the neutral hydrogen fraction
-    inH0[dens_ind]=fcold
-    #Calculate rho_HI
-    nH0=irho*inH0
-    #Now in atoms /cm^3
-    return nH0
-
-class YajimaRT(object):
-    """Neutral hydrogen density with a self-shielding correction as suggested by Yajima Nagamine 2012 (1112.5691)
-    This is just neutral over a certain density."""
-    def __init__(self, redshift, hubble=0.71):
-        self.redshift = redshift
-        self.hubble=hubble
-        #Internal gadget mass unit: 1e10 M_sun/h in g/h
-        self.UnitMass_in_g=1.989e43
-        #Internal gadget length unit: 1 kpc/h in cm/h
-        self.UnitLength_in_cm=3.085678e21
-        #Internal velocity unit : 1 km/s in cm/s
-        self.UnitVelocity_in_cm_per_s=1e5
-        #proton mass in g
-        self.protonmass=1.67262178e-24
-        self.hy_mass = 0.76 # Hydrogen massfrac
-
-    def get_yajima_rhoHI(self,bar):
-        """Get a neutral hydrogen density with a self-shielding correction as suggested by Yajima Nagamine 2012 (1112.5691)
-        This is just neutral over a certain density."""
-        inH0=np.array(bar["NeutralHydrogenAbundance"], dtype=np.float32)
-        #Convert density to hydrogen atoms /cm^3: internal gadget density unit is h^2 (1e10 M_sun) / kpc^3
-        irho=np.array(bar["Density"], dtype=np.float32)*(self.UnitMass_in_g/self.UnitLength_in_cm**3)*self.hubble**2*(self.hy_mass/self.protonmass)
-        #Slightly less sharp cutoff power law fit to data
-        r2 = 10**-2.3437
-        r1 = 10**-1.81844
-        dens_ind=np.where(irho > r1)
-        inH0[dens_ind]=1.
-        del dens_ind
-        ind2 = np.where(np.logical_and(irho < r1,irho > r2))
-        #Interpolate between r1 and r2
-        n=2.6851
-        inH0[ind2] = (inH0[ind2]*(r1-irho[ind2])**n+(irho[ind2]-r2)**n)/(r1-r2)**n
-        del ind2
-        return inH0
-
-    def get_reproc_HI(self, bar):
-        """Get a neutral hydrogen density using the fitting formula of Rahmati 2012"""
-        return self.get_yajima_rhoHI(bar)
-
 #Opacities for the FG09 UVB from Rahmati 2012.
 #IMPORTANT: The values given for z > 5 are calculated by fitting a power law and extrapolating.
 #Gray power law was: -1.12e-19*(zz-3.5)+2.1e-18 fit to z > 2.
@@ -315,7 +235,6 @@ class RahmatiRT(object):
         LambdaT = 1.17e-10*temp**0.5*np.exp(-157809./temp)/(1+np.sqrt(temp/1e5))
         A = alpha_A + LambdaT
         B = 2*alpha_A + self.photo_rate(nH, temp)/nH + LambdaT
-
         return (B - np.sqrt(B**2-4*A*alpha_A))/(2*A)
 
     def get_temp(self,bar):
